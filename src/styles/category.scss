@@ -1,0 +1,49 @@
+.category-management-container {
+  .category-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    
+    h2 {
+      margin: 0;
+    }
+  }
+  
+  .categories-table {
+    .ant-table-row-expand-icon-cell {
+      width: 50px;
+    }
+    
+    // 设置嵌套表格样式
+    .ant-table-expanded-row {
+      .ant-table-wrapper {
+        margin: 0;
+        
+        .ant-table {
+          margin: 0 !important;
+          
+          .ant-table-tbody > tr > td {
+            border-bottom: none;
+          }
+        }
+      }
+    }
+    
+    // 二级分类行样式
+    .ant-table-row-level-1 {
+      background-color: #fafafa;
+    }
+  }
+  
+  // Modal样式
+  .ant-modal-body {
+    padding: 24px;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+  
+  .form-actions {
+    margin-bottom: 0;
+  }
+} 

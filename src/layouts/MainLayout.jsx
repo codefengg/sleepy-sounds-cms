@@ -2,11 +2,7 @@ import React from 'react';
 import { Layout, Menu } from 'antd';
 import { Outlet, useNavigate } from 'react-router-dom';
 import {
-  // DashboardOutlined,
-  SoundOutlined,
-  TagsOutlined,
-  HomeOutlined,
-  BarChartOutlined
+  AppstoreOutlined
 } from '@ant-design/icons';
 import '../styles/layout.scss';
 
@@ -16,37 +12,13 @@ const MainLayout = () => {
   const navigate = useNavigate();
   
   const menuItems = [
-    // 删除或注释掉仪表盘菜单项
-    /*{
-      key: 'dashboard',
-      icon: <DashboardOutlined />,
-      label: '仪表盘',
-      onClick: () => navigate('/')
-    },*/
-    {
-      key: 'audio',
-      icon: <SoundOutlined />,
-      label: '音频管理',
-      onClick: () => navigate('/audio')
-    },
     {
       key: 'categories',
-      icon: <TagsOutlined />,
+      icon: <AppstoreOutlined />,
       label: '分类管理',
-      onClick: () => navigate('/categories')
-    },
-    {
-      key: 'homepage',
-      icon: <HomeOutlined />,
-      label: '首页配置',
-      onClick: () => navigate('/homepage')
-    },
-    {
-      key: 'statistics',
-      icon: <BarChartOutlined />,
-      label: '统计分析',
-      onClick: () => navigate('/statistics')
+      onClick: () => navigate('/')
     }
+    // 在这里添加新的菜单项
   ];
 
   return (
@@ -55,7 +27,7 @@ const MainLayout = () => {
         <div className="logo">音频CMS</div>
         <Menu
           mode="inline"
-          defaultSelectedKeys={['audio']}
+          defaultSelectedKeys={['categories']}
           style={{ height: '100%', borderRight: 0 }}
           items={menuItems}
         />

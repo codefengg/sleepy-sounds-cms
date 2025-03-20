@@ -1,0 +1,29 @@
+.audio-list-container {
+  .audio-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    
+    h2 {
+      margin: 0;
+    }
+  }
+  
+  .audio-list-search {
+    margin-bottom: 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .audio-list-container {
+    .audio-list-header {
+      flex-direction: column;
+      align-items: flex-start;
+      
+      button {
+        margin-top: 12px;
+      }
+    }
+  }
+} 

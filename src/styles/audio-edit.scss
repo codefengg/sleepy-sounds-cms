@@ -1,0 +1,29 @@
+.audio-edit-container {
+  .audio-edit-header {
+    margin-bottom: 24px;
+  }
+  
+  .form-content {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 24px;
+    
+    .form-left, .form-right {
+      flex: 1;
+    }
+  }
+  
+  .form-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .audio-edit-container {
+    .form-content {
+      flex-direction: column;
+    }
+  }
+} 

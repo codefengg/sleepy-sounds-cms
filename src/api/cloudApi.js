@@ -37,7 +37,9 @@ export const initCloud = async () => {
       });
 
       // 跨账号调用，必须等待 init 完成
-      await c1.init();
+      await c1.init({
+        env: cloudConfig.resourceEnv,
+      });
       
       // 保存实例
       cloudInstance = c1;
@@ -95,4 +97,6 @@ export const callFunction = async (name, data = {}) => {
       },
     });
   });
-}; 
+};
+
+export const getCloudInstance = () => cloudInstance; 

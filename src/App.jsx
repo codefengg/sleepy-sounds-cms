@@ -12,6 +12,7 @@ import MainLayout from './layouts/MainLayout';
 
 // 页面
 import CategoryManagement from './pages/CategoryManagement';
+import ImageLibrary from './pages/ImageLibrary';
 
 import './styles/app.scss';
 
@@ -37,6 +38,7 @@ const App = () => {
             <Routes>
               <Route path="/" element={<MainLayout />}>
                 <Route index element={<CategoryManagement />} />
+                <Route path="images" element={<ImageLibrary />} />
                 {/* 在这里添加新的路由 */}
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>

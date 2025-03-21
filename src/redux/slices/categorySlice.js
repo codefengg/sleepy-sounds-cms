@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-// import { callFunction } from '../../api/cloudApi';
+import { getCategories as apiGetCategories, addCategory as apiAddCategory, updateCategory as apiUpdateCategory, deleteCategory as apiDeleteCategory } from '../../api/categoryApi';
 
 // 模拟数据 - 包含一级和二级分类
 const mockCategories = [
@@ -26,12 +26,12 @@ const mockCategories = [
 export const fetchCategories = createAsyncThunk(
   'category/fetchCategories',
   async () => {
-    // 模拟API请求
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(mockCategories);
-      }, 500);
-    });
+    const result = await apiGetCategories();
+    if (result.success) {
+      return result.data;
+    } else {
+      throw new Error(result.error || '获取分类列表失败');
+    }
   }
 );
 
@@ -39,16 +39,12 @@ export const fetchCategories = createAsyncThunk(
 export const addCategory = createAsyncThunk(
   'category/addCategory',
   async (categoryData) => {
-    // 模拟API请求
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const newCategory = {
-          ...categoryData,
-          _id: Date.now().toString()
-        };
-        resolve(newCategory);
-      }, 500);
-    });
+    const result = await apiAddCategory(categoryData);
+    if (result.success) {
+      return result.data;
+    } else {
+      throw new Error(result.error || '添加分类失败');
+    }
   }
 );
 
@@ -56,12 +52,14 @@ export const addCategory = createAsyncThunk(
 export const updateCategory = createAsyncThunk(
   'category/updateCategory',
   async (categoryData) => {
-    // 模拟API请求
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(categoryData);
-      }, 500);
-    });
+    // 确保使用id而不是_id
+    const { _id, ...rest } = categoryData;
+    const result = await apiUpdateCategory({ id: _id, ...rest });
+    if (result.success) {
+      return result.data;
+    } else {
+      throw new Error(result.error || '更新分类失败');
+    }
   }
 );
 
@@ -69,12 +67,12 @@ export const updateCategory = createAsyncThunk(
 export const deleteCategory = createAsyncThunk(
   'category/deleteCategory',
   async (id) => {
-    // 模拟API请求
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(id);
-      }, 500);
-    });
+    const result = await apiDeleteCategory(id);
+    if (result.success) {
+      return result.deletedId;
+    } else {
+      throw new Error(result.error || '删除分类失败');
+    }
   }
 );
 

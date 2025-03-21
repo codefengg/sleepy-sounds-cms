@@ -6,21 +6,15 @@ import {
 import {
   PlusOutlined
 } from '@ant-design/icons';
-import { useDispatch, useSelector } from 'react-redux';
-import { 
-  fetchCategories, 
-  addCategory, 
-  updateCategory, 
-  deleteCategory 
-} from '../redux/slices/categorySlice';
+import { getCategories, addCategory, updateCategory, deleteCategory } from '../api/categoryApi';
 import '../styles/category.scss';
 
 const { Text } = Typography;
 
 const CategoryManagement = () => {
-  const dispatch = useDispatch();
-  const { categories, loading } = useSelector((state) => state.category);
-  
+  // 状态
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [form] = Form.useForm();
   const [modalVisible, setModalVisible] = useState(false);
@@ -28,10 +22,38 @@ const CategoryManagement = () => {
   const [expandedRowKeys, setExpandedRowKeys] = useState([]);
 
   // 获取分类列表
+  const fetchCategories = async (retryCount = 0) => {
+    setLoading(true);
+    try {
+      const result = await getCategories();
+      if (result.success) {
+        setCategories(result.data);
+      } else {
+        message.error(result.error || '获取分类列表失败');
+      }
+    } catch (error) {
+      console.error('获取分类列表失败:', error);
+      
+      // 如果是初始化错误且重试次数小于3，则等待1秒后重试
+      if (error.message.includes('初始化') && retryCount < 3) {
+        console.log(`等待SDK初始化，1秒后重试(${retryCount + 1}/3)...`);
+        setTimeout(() => {
+          fetchCategories(retryCount + 1);
+        }, 1000);
+        return;
+      }
+      
+      message.error('获取分类列表失败: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 组件挂载时获取分类列表
   useEffect(() => {
-    dispatch(fetchCategories());
+    fetchCategories();
     // 默认不展开任何分类
-  }, [dispatch]);
+  }, []);
 
   // 重置表单
   const resetForm = () => {
@@ -92,35 +114,60 @@ const CategoryManagement = () => {
   };
 
   // 删除分类
-  const handleDeleteCategory = (category) => {
-    dispatch(deleteCategory(category._id)).then(() => {
-      message.success('分类删除成功');
-      setSelectedCategory(null);
-    });
+  const handleDeleteCategory = async (category) => {
+    try {
+      const result = await deleteCategory(category._id);
+      if (result.success) {
+        message.success('分类删除成功');
+        setSelectedCategory(null);
+        // 重新获取分类列表
+        fetchCategories();
+      } else {
+        message.error(result.error || '删除分类失败');
+      }
+    } catch (error) {
+      message.error(`删除失败: ${error.message}`);
+    }
   };
 
   // 提交表单
-  const onFinish = (values) => {
+  const onFinish = async (values) => {
     const formData = { ...values };
     
     // 删除非API字段
     if (formData.parentName) delete formData.parentName;
     
-    if (modalType === 'edit') {
-      // 更新分类
-      dispatch(updateCategory({
-        _id: selectedCategory._id,
-        ...formData
-      })).then(() => {
-        message.success('分类更新成功');
-        closeModal();
-      });
-    } else {
-      // 添加分类 (主分类或子分类)
-      dispatch(addCategory(formData)).then(() => {
-        message.success('分类添加成功');
-        closeModal();
-      });
+    try {
+      if (modalType === 'edit') {
+        // 更新分类
+        const result = await updateCategory({
+          id: selectedCategory._id,
+          ...formData
+        });
+        
+        if (result.success) {
+          message.success('分类更新成功');
+          closeModal();
+          // 重新获取分类列表
+          fetchCategories();
+        } else {
+          message.error(result.error || '更新分类失败');
+        }
+      } else {
+        // 添加分类 (主分类或子分类)
+        const result = await addCategory(formData);
+        
+        if (result.success) {
+          message.success('分类添加成功');
+          closeModal();
+          // 重新获取分类列表
+          fetchCategories();
+        } else {
+          message.error(result.error || '添加分类失败');
+        }
+      }
+    } catch (error) {
+      message.error(`操作失败: ${error.message}`);
     }
   };
 
@@ -224,9 +271,9 @@ const CategoryManagement = () => {
         </Button>
       </div>
       
-      <Table 
+      <Table
         className="categories-table"
-        columns={columns} 
+        columns={columns}
         dataSource={tableData}
         rowKey="_id"
         loading={loading}

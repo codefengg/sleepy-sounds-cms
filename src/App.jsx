@@ -16,6 +16,7 @@ import {
 import CategoryManagement from './pages/CategoryManagement';
 import ImageLibrary from './pages/ImageLibrary';
 import MusicManagement from './pages/MusicManagement';
+import AudioLibrary from './pages/AudioLibrary';
 
 // 布局
 import MainLayout from './layouts/MainLayout';
@@ -66,6 +67,9 @@ const App = () => {
                     <Menu.Item key="4" icon={<CustomerServiceOutlined />}>
                       <Link to="/music">音乐管理</Link>
                     </Menu.Item>
+                    <Menu.Item key="5" icon={<CustomerServiceOutlined />}>
+                      <Link to="/audios">音频库</Link>
+                    </Menu.Item>
                   </Menu>
                 </Sider>
                 <Layout style={{ padding: '0 24px 24px' }}>
@@ -75,6 +79,7 @@ const App = () => {
                       <Route path="/categories" element={<CategoryManagement />} />
                       <Route path="/images" element={<ImageLibrary />} />
                       <Route path="/music" element={<MusicManagement />} />
+                      <Route path="/audios" element={<AudioLibrary />} />
                     </Routes>
                   </Content>
                 </Layout>

@@ -1,0 +1,37 @@
+.audio-library-container {
+  .audio-library-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    
+    h2 {
+      margin: 0;
+    }
+  }
+  
+  .audio-list {
+    background: #fff;
+    padding: 24px;
+    border-radius: 4px;
+    
+    .ant-list-item {
+      padding: 16px;
+      
+      &:hover {
+        background-color: #fafafa;
+      }
+      
+      audio {
+        width: 100%;
+        max-width: 300px;
+      }
+    }
+  }
+  
+  .pagination-container {
+    margin-top: 24px;
+    display: flex;
+    justify-content: flex-end;
+  }
+} 

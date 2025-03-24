@@ -4,6 +4,7 @@ import { PictureOutlined } from '@ant-design/icons';
 import ImageSelector from './ImageSelector';
 import { getCategories } from '../api/categoryApi';
 import '../styles/musicForm.scss';
+import AudioSelector from './AudioSelector';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -17,6 +18,11 @@ const MusicForm = ({ initialValues, onFinish, onCancel, loading }) => {
     field: null,
     title: ''
   });
+  const [audioSelector, setAudioSelector] = useState({
+    visible: false,
+    field: null
+  });
+  const [audioName, setAudioName] = useState('');
 
   // 获取所有分类
   const fetchCategories = async () => {
@@ -102,6 +108,51 @@ const MusicForm = ({ initialValues, onFinish, onCancel, loading }) => {
     );
   };
 
+  // 打开音频选择器
+  const openAudioSelector = () => {
+    setAudioSelector({
+      visible: true,
+      field: 'audioUrl'
+    });
+  };
+
+  // 关闭音频选择器
+  const closeAudioSelector = () => {
+    setAudioSelector({
+      visible: false,
+      field: null
+    });
+  };
+
+  // 处理音频选择
+  const handleAudioSelect = (audio) => {
+    setAudioName(audio.name);
+    form.setFieldsValue({
+      audioUrl: audio.url
+    });
+    closeAudioSelector();
+  };
+
+  // 渲染音频预览
+  const renderAudioPreview = (url) => (
+    <div className="audio-preview-container">
+      {url ? (
+        <div className="audio-preview">
+          <audio src={url} controls />
+          <div className="audio-actions">
+            <Button type="primary" onClick={openAudioSelector}>
+              重新选择
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button type="dashed" onClick={openAudioSelector} style={{ width: '100%' }}>
+          选择音频
+        </Button>
+      )}
+    </div>
+  );
+
   // 处理表单提交
   const handleSubmit = (values) => {
     onFinish(values);
@@ -117,10 +168,25 @@ const MusicForm = ({ initialValues, onFinish, onCancel, loading }) => {
       >
         <Form.Item
           name="audioUrl"
-          label="音乐链接"
-          rules={[{ required: true, message: '请输入音乐链接' }]}
+          label="音频链接"
+          rules={[{ required: true, message: '请选择音频' }]}
         >
-          <Input placeholder="请输入音乐链接" />
+          <Input 
+            value={audioName || '请选择音频'}
+            placeholder="请选择音频" 
+            readOnly 
+            className="audio-input"
+            addonAfter={
+              <Button type="link" onClick={openAudioSelector} style={{ padding: 0 }}>
+                选择音频
+              </Button>
+            }
+          />
+          {form.getFieldValue('audioUrl') && (
+            <div style={{ marginTop: 8 }}>
+              <audio src={form.getFieldValue('audioUrl')} controls />
+            </div>
+          )}
         </Form.Item>
         
         <Form.Item
@@ -239,6 +305,12 @@ const MusicForm = ({ initialValues, onFinish, onCancel, loading }) => {
         onSelect={handleImageSelect}
         title={`选择${imageSelector.title}`}
         imageType={imageType}
+      />
+      <AudioSelector
+        visible={audioSelector.visible}
+        onCancel={closeAudioSelector}
+        onSelect={handleAudioSelect}
+        title="选择音频"
       />
     </div>
   );

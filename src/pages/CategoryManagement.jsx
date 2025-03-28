@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Table, Button, Form, Input, InputNumber, Modal, Tag,
-  message, Popconfirm, Space, Typography
+  message, Popconfirm, Space, Typography, Avatar
 } from 'antd';
 import {
-  PlusOutlined
+  PlusOutlined, PictureOutlined
 } from '@ant-design/icons';
 import { getCategories, addCategory, updateCategory, deleteCategory } from '../api/categoryApi';
+import ImageSelector from '../components/ImageSelector';
 import '../styles/category.scss';
 
 const { Text } = Typography;
@@ -20,6 +21,10 @@ const CategoryManagement = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [modalType, setModalType] = useState('add-main'); // 'add-main', 'add-sub', 'edit'
   const [expandedRowKeys, setExpandedRowKeys] = useState([]);
+  const [imageSelector, setImageSelector] = useState({
+    visible: false,
+    field: null
+  });
 
   // 获取分类列表
   const fetchCategories = async (retryCount = 0) => {
@@ -52,7 +57,6 @@ const CategoryManagement = () => {
   // 组件挂载时获取分类列表
   useEffect(() => {
     fetchCategories();
-    // 默认不展开任何分类
   }, []);
 
   // 重置表单
@@ -93,7 +97,8 @@ const CategoryManagement = () => {
     
     const formData = {
       name: category.name,
-      order: category.order
+      order: category.order,
+      iconUrl: category.iconUrl
     };
     
     if (category.parentId) {
@@ -128,6 +133,30 @@ const CategoryManagement = () => {
     } catch (error) {
       message.error(`删除失败: ${error.message}`);
     }
+  };
+
+  // 打开图标选择器
+  const openIconSelector = () => {
+    setImageSelector({
+      visible: true,
+      field: 'iconUrl'
+    });
+  };
+
+  // 关闭图标选择器
+  const closeIconSelector = () => {
+    setImageSelector({
+      visible: false,
+      field: null
+    });
+  };
+
+  // 处理图标选择
+  const handleIconSelect = (image) => {
+    form.setFieldsValue({
+      iconUrl: image.url
+    });
+    closeIconSelector();
   };
 
   // 提交表单
@@ -192,6 +221,14 @@ const CategoryManagement = () => {
       .sort((a, b) => a.order - b.order);
   };
 
+  // 渲染图标
+  const renderIcon = (iconUrl) => {
+    if (iconUrl) {
+      return <Avatar src={iconUrl} size="small" />;
+    }
+    return <Avatar icon={<PictureOutlined />} size="small" />;
+  };
+
   // 表格列定义
   const columns = [
     {
@@ -201,7 +238,12 @@ const CategoryManagement = () => {
       render: (text, record) => {
         // 渲染不同层级的分类样式
         if (!record.parentId) {
-          return <Text strong>{text}</Text>;
+          return (
+            <Space>
+              {renderIcon(record.iconUrl)}
+              <Text strong>{text}</Text>
+            </Space>
+          );
         } else {
           return <Text style={{ marginLeft: 50 }}>{text}</Text>;
         }
@@ -357,6 +399,39 @@ const CategoryManagement = () => {
             <InputNumber placeholder="请输入排序值" style={{ width: '100%' }} />
           </Form.Item>
           
+          {/* 只有一级分类才显示图标选择 */}
+          {(modalType === 'add-main' || (modalType === 'edit' && !selectedCategory?.parentId)) && (
+            <Form.Item
+              name="iconUrl"
+              label="分类图标"
+            >
+              <Input hidden />
+              <div className="icon-preview-container">
+                {form.getFieldValue('iconUrl') ? (
+                  <div className="icon-preview">
+                    <img src={form.getFieldValue('iconUrl')} alt="分类图标" />
+                    <div className="icon-actions">
+                      <Button 
+                        type="primary" 
+                        size="small"
+                        onClick={openIconSelector}
+                      >
+                        更换图标
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button 
+                    icon={<PictureOutlined />} 
+                    onClick={openIconSelector}
+                  >
+                    选择图标
+                  </Button>
+                )}
+              </div>
+            </Form.Item>
+          )}
+          
           <Form.Item className="form-actions">
             <Space style={{ width: '100%', justifyContent: 'flex-end', marginTop: '20px' }}>
               <Button onClick={closeModal}>
@@ -369,6 +444,14 @@ const CategoryManagement = () => {
           </Form.Item>
         </Form>
       </Modal>
+      
+      {/* 图标选择器 */}
+      <ImageSelector
+        visible={imageSelector.visible}
+        onCancel={closeIconSelector}
+        onSelect={handleIconSelect}
+        title="选择分类图标"
+      />
     </div>
   );
 };

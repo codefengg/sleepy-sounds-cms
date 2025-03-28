@@ -7,6 +7,9 @@ WORKDIR /app
 # 复制 package.json 和 package-lock.json
 COPY package*.json ./
 
+# 设置 npm 使用公共仓库
+RUN npm config set registry https://registry.npmjs.org/
+
 # 安装依赖
 RUN npm install
 

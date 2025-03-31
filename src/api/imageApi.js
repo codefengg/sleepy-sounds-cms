@@ -4,32 +4,50 @@ import cloudConfig from '../config/cloudConfig';
 /**
  * 获取图片列表
  * @param {Object} params - 查询参数
- * @param {string} [params.type] - 图片类型（可选）
  * @param {number} [params.limit=20] - 每页数量
  * @param {number} [params.skip=0] - 跳过数量
  * @returns {Promise<Object>} 包含图片数据的响应
  */
 export const getImages = async (params = {}) => {
   return await callFunction('imageLibrary', { 
-    action: 'get',
-    ...params
+    action: 'getImages',
+    data: params
   });
 };
 
 /**
  * 添加图片
  * @param {Object} imageData - 图片数据
- * @param {string} imageData.url - 图片URL
  * @param {string} imageData.name - 图片名称
- * @param {string} [imageData.type] - 图片类型（可选）
- * @param {number} [imageData.size] - 图片大小（可选）
- * @param {string} [imageData.description] - 图片描述（可选）
- * @returns {Promise<Object>} 包含新添加图片的响应
+ * @param {string} imageData.largeUrl - 大图URL
+ * @param {string} imageData.thumbnailUrl - 缩略图URL
+ * @param {string} imageData.playUrl - 播放图URL
+ * @param {string} [imageData.videoUrl] - 视频URL（可选）
+ * @param {string} [imageData.animatedUrl] - 动画图URL（可选）
+ * @returns {Promise<Object>} 包含添加结果的响应
  */
 export const addImage = async (imageData) => {
   return await callFunction('imageLibrary', { 
-    action: 'add',
-    ...imageData
+    action: 'addImage',
+    data: imageData
+  });
+};
+
+/**
+ * 更新图片
+ * @param {Object} imageData - 图片数据
+ * @param {string} imageData._id - 图片ID
+ * @param {string} [imageData.largeUrl] - 大图URL
+ * @param {string} [imageData.thumbnailUrl] - 缩略图URL
+ * @param {string} [imageData.playUrl] - 播放图URL
+ * @param {string} [imageData.videoUrl] - 视频URL
+ * @param {string} [imageData.animatedUrl] - 动画图URL
+ * @returns {Promise<Object>} 包含更新结果的响应
+ */
+export const updateImage = async (imageData) => {
+  return await callFunction('imageLibrary', { 
+    action: 'updateImage',
+    data: imageData
   });
 };
 
@@ -40,14 +58,14 @@ export const addImage = async (imageData) => {
  */
 export const deleteImage = async (id) => {
   return await callFunction('imageLibrary', { 
-    action: 'delete',
-    id
+    action: 'deleteImage',
+    data: { _id: id }
   });
 };
 
 /**
  * 上传图片到云存储
- * @param {File} file - 要上传的文件对象
+ * @param {File} file - 要上传的文件
  * @returns {Promise<Object>} 包含上传结果的响应
  */
 export const uploadImageToCloud = async (file) => {
@@ -89,4 +107,4 @@ export const uploadImageToCloud = async (file) => {
       error: error.message || '上传文件失败'
     };
   }
-}; 
+};

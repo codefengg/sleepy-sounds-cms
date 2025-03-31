@@ -1,73 +1,60 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Card, Button, Upload, Modal, Input, Form, 
-  message, Popconfirm, Space, Typography, Spin, 
-  Row, Col, Select, Empty, Pagination, Tag, Image
+  Table, Button, Upload, Modal, Input, Form, 
+  message, Popconfirm, Space, Typography, Image
 } from 'antd';
 import { 
   PlusOutlined, DeleteOutlined, 
-  UploadOutlined 
+  EditOutlined
 } from '@ant-design/icons';
-import { getImages, addImage, deleteImage, uploadImageToCloud } from '../api/imageApi';
+import { getImages, addImage, deleteImage, updateImage, uploadImageToCloud } from '../api/imageApi';
 import '../styles/imageLibrary.scss';
 
-// 引入瀑布流组件
-import Masonry from 'react-masonry-css';
-
-const { Meta } = Card;
-const { Title, Text } = Typography;
-const { TextArea } = Input;
-const { Option } = Select;
+const { Title } = Typography;
 
 const ImageLibrary = () => {
   // 状态
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [uploadModalVisible, setUploadModalVisible] = useState(false);
-  const [previewVisible, setPreviewVisible] = useState(false);
-  const [previewImage, setPreviewImage] = useState('');
-  const [previewTitle, setPreviewTitle] = useState('');
-  const [uploadLoading, setUploadLoading] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalTitle, setModalTitle] = useState('添加图片');
+  const [editingImage, setEditingImage] = useState(null);
   const [form] = Form.useForm();
   const [pagination, setPagination] = useState({
     current: 1,
-    pageSize: 12,
+    pageSize: 10,
     total: 0
   });
-  const [filterType, setFilterType] = useState(null);
-
-  // 瀑布流的断点设置
-  const breakpointColumnsObj = {
-    default: 4,
-    1200: 3,
-    992: 2,
-    576: 1
-  };
+  
+  // 上传文件状态
+  const [uploadFiles, setUploadFiles] = useState({
+    name: '',
+    largeUrl: '',
+    thumbnailUrl: '',
+    playUrl: '',
+    videoUrl: '',
+    animatedUrl: ''
+  });
 
   // 获取图片列表
-  const fetchImages = async (page = 1, pageSize = 12, type = null) => {
+  const fetchImages = async (page = 1) => {
     setLoading(true);
     try {
       const params = {
-        limit: pageSize,
-        skip: (page - 1) * pageSize
+        limit: pagination.pageSize,
+        skip: (page - 1) * pagination.pageSize
       };
-      
-      if (type) {
-        params.type = type;
-      }
       
       const result = await getImages(params);
       if (result.success) {
-        setImages(result.data);
+        setImages(result.data || []);
         setPagination({
+          ...pagination,
           current: page,
-          pageSize,
-          total: result.total
+          total: result.total || 0
         });
       } else {
-        message.error(result.error || '获取图片列表失败');
+        message.error(result.message || '获取图片列表失败');
       }
     } catch (error) {
       console.error('获取图片列表失败:', error);
@@ -79,257 +66,349 @@ const ImageLibrary = () => {
 
   // 组件挂载时获取图片列表
   useEffect(() => {
-    fetchImages(pagination.current, pagination.pageSize, filterType);
+    fetchImages();
   }, []);
 
-  // 处理分页变化
-  const handlePageChange = (page, pageSize) => {
-    fetchImages(page, pageSize, filterType);
-  };
-
-  // 处理类型筛选变化
-  const handleTypeChange = (value) => {
-    setFilterType(value);
-    fetchImages(1, pagination.pageSize, value);
-  };
-
-  // 打开上传图片弹窗
-  const showUploadModal = () => {
+  // 打开添加图片弹窗
+  const showAddModal = () => {
     form.resetFields();
-    setSelectedFile(null);
-    setUploadModalVisible(true);
+    setEditingImage(null);
+    setModalTitle('添加图片');
+    setUploadFiles({
+      name: '',
+      largeUrl: '',
+      thumbnailUrl: '',
+      playUrl: '',
+      videoUrl: '',
+      animatedUrl: ''
+    });
+    setModalVisible(true);
+  };
+  
+  // 打开编辑图片弹窗
+  const showEditModal = (record) => {
+    setEditingImage(record);
+    setModalTitle('编辑图片');
+    form.setFieldsValue({
+      name: record.name || ''
+    });
+    setUploadFiles({
+      name: record.name || '',
+      largeUrl: record.largeUrl || '',
+      thumbnailUrl: record.thumbnailUrl || '',
+      playUrl: record.playUrl || '',
+      videoUrl: record.videoUrl || '',
+      animatedUrl: record.animatedUrl || ''
+    });
+    setModalVisible(true);
   };
 
-  // 关闭上传图片弹窗
-  const closeUploadModal = () => {
-    setUploadModalVisible(false);
+  // 关闭弹窗
+  const closeModal = () => {
+    setModalVisible(false);
   };
 
-  // 处理文件选择
-  const handleFileChange = (info) => {
-    if (info.file) {
-      setSelectedFile(info.file);
-      // 自动填充文件名
-      form.setFieldsValue({
-        name: info.file.name.split('.')[0]
+  // 处理上传大图
+  const handleLargeUpload = (info) => {
+    if (info.file.status === 'done') {
+      setUploadFiles({
+        ...uploadFiles,
+        largeUrl: info.file.response.fileUrl
       });
+      message.success('大图上传成功');
+    } else if (info.file.status === 'error') {
+      message.error('大图上传失败');
     }
   };
 
-  // 处理图片预览
-  const handlePreview = (image) => {
-    setPreviewImage(image.url);
-    setPreviewTitle(image.name);
-    setPreviewVisible(true);
+  // 处理上传缩略图
+  const handleThumbnailUpload = (info) => {
+    if (info.file.status === 'done') {
+      setUploadFiles({
+        ...uploadFiles,
+        thumbnailUrl: info.file.response.fileUrl
+      });
+      message.success('缩略图上传成功');
+    } else if (info.file.status === 'error') {
+      message.error('缩略图上传失败');
+    }
   };
 
-  // 关闭预览
-  const handlePreviewCancel = () => {
-    setPreviewVisible(false);
+  // 处理上传播放图
+  const handlePlayUpload = (info) => {
+    if (info.file.status === 'done') {
+      setUploadFiles({
+        ...uploadFiles,
+        playUrl: info.file.response.fileUrl
+      });
+      message.success('播放图上传成功');
+    } else if (info.file.status === 'error') {
+      message.error('播放图上传失败');
+    }
   };
 
-  // 处理图片删除
-  const handleDelete = async (id) => {
-    try {
-      const result = await deleteImage(id);
-      if (result.success) {
-        message.success('图片删除成功');
-        // 重新获取图片列表
-        fetchImages(pagination.current, pagination.pageSize, filterType);
-      } else {
-        message.error(result.error || '删除图片失败');
-      }
-    } catch (error) {
-      message.error('删除图片失败: ' + error.message);
+  // 处理上传视频
+  const handleVideoUpload = (info) => {
+    if (info.file.status === 'done') {
+      setUploadFiles({
+        ...uploadFiles,
+        videoUrl: info.file.response.fileUrl
+      });
+      message.success('视频上传成功');
+    } else if (info.file.status === 'error') {
+      message.error('视频上传失败');
+    }
+  };
+
+  // 处理上传动画图
+  const handleAnimatedUpload = (info) => {
+    if (info.file.status === 'done') {
+      setUploadFiles({
+        ...uploadFiles,
+        animatedUrl: info.file.response.fileUrl
+      });
+      message.success('动画图上传成功');
+    } else if (info.file.status === 'error') {
+      message.error('动画图上传失败');
     }
   };
 
   // 处理表单提交
-  const handleUpload = async (values) => {
-    if (!selectedFile) {
-      message.error('请选择要上传的图片');
+  const handleFormSubmit = async (values) => {
+    const { name } = values;
+    
+    // 验证必填项
+    if (!uploadFiles.largeUrl || !uploadFiles.thumbnailUrl || !uploadFiles.playUrl) {
+      message.error('请上传大图、缩略图和播放图');
       return;
     }
-
-    setUploadLoading(true);
+    
     try {
-      // 1. 上传图片到云存储
-      const uploadResult = await uploadImageToCloud(selectedFile);
-      if (!uploadResult.success) {
-        throw new Error(uploadResult.error || '上传图片失败');
-      }
-
-      // 2. 保存图片信息到数据库
       const imageData = {
-        url: uploadResult.fileUrl,
-        name: values.name,
-        type: values.type || 'none',
-        size: selectedFile.size,
+        name,
+        largeUrl: uploadFiles.largeUrl,
+        thumbnailUrl: uploadFiles.thumbnailUrl,
+        playUrl: uploadFiles.playUrl,
+        videoUrl: uploadFiles.videoUrl || '',
+        animatedUrl: uploadFiles.animatedUrl || ''
       };
-
-      const addResult = await addImage(imageData);
-      if (addResult.success) {
-        message.success('图片上传成功');
-        closeUploadModal();
-        // 重新获取图片列表
-        fetchImages(pagination.current, pagination.pageSize, filterType);
+      
+      let result;
+      
+      if (editingImage) {
+        // 编辑模式
+        result = await updateImage({
+          _id: editingImage._id,
+          ...imageData
+        });
       } else {
-        throw new Error(addResult.error || '保存图片信息失败');
+        // 添加模式
+        result = await addImage(imageData);
+      }
+      
+      if (result.success) {
+        message.success(editingImage ? '更新图片成功' : '添加图片成功');
+        closeModal();
+        fetchImages(1); // 刷新列表
+      } else {
+        message.error(result.message || (editingImage ? '更新图片失败' : '添加图片失败'));
       }
     } catch (error) {
-      message.error('上传图片失败: ' + error.message);
-    } finally {
-      setUploadLoading(false);
+      console.error(editingImage ? '更新图片失败:' : '添加图片失败:', error);
+      message.error((editingImage ? '更新图片失败: ' : '添加图片失败: ') + error.message);
     }
   };
 
-  // 上传按钮
-  const uploadButton = (
-    <div>
-      <PlusOutlined />
-      <div style={{ marginTop: 8 }}>选择图片</div>
-    </div>
-  );
-
-  // 在渲染图片卡片的地方
-  const getTypeTag = (type) => {
-    switch(type) {
-      case 'background':
-        return <Tag color="blue">背景图</Tag>;
-      case 'playIcon':
-        return <Tag color="green">播放图标</Tag>;
-      case 'listImage':
-        return <Tag color="purple">列表图</Tag>;
-      case 'none':
-      default:
-        return <Tag>无</Tag>;
+  // 处理删除图片
+  const handleDelete = async (id) => {
+    try {
+      const result = await deleteImage(id);
+      
+      if (result.success) {
+        message.success('删除成功');
+        fetchImages(pagination.current); // 刷新当前页
+      } else {
+        message.error(result.message || '删除失败');
+      }
+    } catch (error) {
+      console.error('删除失败:', error);
+      message.error('删除失败: ' + error.message);
     }
   };
+
+  // 处理分页变化
+  const handleTableChange = (pagination) => {
+    fetchImages(pagination.current);
+  };
+
+  // 表格列定义
+  const columns = [
+    {
+      title: '名称',
+      dataIndex: 'name',
+      key: 'name',
+      width: 200
+    },
+    {
+      title: '大图',
+      dataIndex: 'largeUrl',
+      key: 'largeUrl',
+      render: (url) => (
+        url ? (
+          <div className="image-thumbnail">
+            <Image
+              src={url}
+              alt="大图"
+              width={100}
+              height={100}
+              style={{ objectFit: 'cover' }}
+            />
+          </div>
+        ) : (
+          <div className="image-placeholder">无图片</div>
+        )
+      )
+    },
+    {
+      title: '缩略图',
+      dataIndex: 'thumbnailUrl',
+      key: 'thumbnailUrl',
+      render: (url) => (
+        url ? (
+          <div className="image-thumbnail">
+            <Image
+              src={url}
+              alt="缩略图"
+              width={100}
+              height={100}
+              style={{ objectFit: 'cover' }}
+            />
+          </div>
+        ) : (
+          <div className="image-placeholder">无图片</div>
+        )
+      )
+    },
+    {
+      title: '播放图',
+      dataIndex: 'playUrl',
+      key: 'playUrl',
+      render: (url) => (
+        url ? (
+          <div className="image-thumbnail">
+            <Image
+              src={url}
+              alt="播放图"
+              width={100}
+              height={100}
+              style={{ objectFit: 'cover' }}
+            />
+          </div>
+        ) : (
+          <div className="image-placeholder">无图片</div>
+        )
+      )
+    },
+    {
+      title: '视频',
+      dataIndex: 'videoUrl',
+      key: 'videoUrl',
+      render: (url) => (
+        url ? (
+          <div className="video-thumbnail">
+            <a href={url} target="_blank" rel="noopener noreferrer">查看视频</a>
+          </div>
+        ) : (
+          <div className="image-placeholder">无视频</div>
+        )
+      )
+    },
+    {
+      title: '动画图',
+      dataIndex: 'animatedUrl',
+      key: 'animatedUrl',
+      render: (url) => (
+        url ? (
+          <div className="image-thumbnail">
+            <Image
+              src={url}
+              alt="动画图"
+              width={100}
+              height={100}
+              style={{ objectFit: 'cover' }}
+            />
+          </div>
+        ) : (
+          <div className="image-placeholder">无图片</div>
+        )
+      )
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 150,
+      render: (_, record) => (
+        <Space size="middle">
+          <Button 
+            type="text" 
+            icon={<EditOutlined />} 
+            onClick={() => showEditModal(record)}
+          />
+          <Popconfirm
+            title="确定要删除这张图片吗?"
+            onConfirm={() => handleDelete(record._id)}
+            okText="确定"
+            cancelText="取消"
+          >
+            <Button 
+              type="text" 
+              danger 
+              icon={<DeleteOutlined />} 
+            />
+          </Popconfirm>
+        </Space>
+      )
+    }
+  ];
 
   return (
     <div className="image-library-container">
       <div className="image-library-header">
-        <div className="header-left">
-          <Title level={2}>图片库</Title>
-          <Select
-            placeholder="筛选图片类型"
-            allowClear
-            style={{ width: 200, marginLeft: 16 }}
-            onChange={handleTypeChange}
-            value={filterType}
-          >
-            <Option value="none">无</Option>
-            <Option value="background">背景图</Option>
-            <Option value="playIcon">播放图标</Option>
-            <Option value="listImage">列表图</Option>
-          </Select>
-        </div>
+        <Title level={2}>图片库</Title>
         <Button 
           type="primary" 
-          icon={<UploadOutlined />}
-          onClick={showUploadModal}
+          icon={<PlusOutlined />} 
+          onClick={showAddModal}
         >
-          上传图片
+          添加图片
         </Button>
       </div>
       
-      <Spin spinning={loading}>
-        {images.length > 0 ? (
-          <div className="image-gallery">
-            <Masonry
-              breakpointCols={breakpointColumnsObj}
-              className="masonry-grid"
-              columnClassName="masonry-grid_column"
-            >
-              {images.map(image => (
-                <div key={image._id} className="image-card-wrapper">
-                  <Card
-                    hoverable
-                    className="image-card"
-                    cover={
-                      <div className="image-container">
-                        <Image
-                          src={image.url}
-                          alt={image.name}
-                          className="gallery-image"
-                          preview={{
-                            mask: <div className="preview-mask">预览</div>
-                          }}
-                        />
-                      </div>
-                    }
-                    actions={[
-                      <Popconfirm
-                        title="确定要删除这张图片吗?"
-                        description="删除后无法恢复"
-                        onConfirm={() => handleDelete(image._id)}
-                        okText="确定"
-                        cancelText="取消"
-                        okButtonProps={{ danger: true }}
-                      >
-                        <DeleteOutlined key="delete" />
-                      </Popconfirm>
-                    ]}
-                  >
-                    <Meta
-                      title={image.name}
-                      description={getTypeTag(image.type)}
-                    />
-                  </Card>
-                </div>
-              ))}
-            </Masonry>
-          </div>
-        ) : (
-          <Empty description="暂无图片" />
-        )}
-        
-        {pagination.total > 0 && (
-          <div className="pagination-container">
-            <Pagination
-              current={pagination.current}
-              pageSize={pagination.pageSize}
-              total={pagination.total}
-              onChange={handlePageChange}
-              showSizeChanger
-              showTotal={(total) => `共 ${total} 张图片`}
-            />
-          </div>
-        )}
-      </Spin>
+      <Table
+        className="images-table"
+        columns={columns}
+        dataSource={images}
+        rowKey="_id"
+        pagination={pagination}
+        loading={loading}
+        onChange={handleTableChange}
+      />
       
-      {/* 上传图片弹窗 */}
+      {/* 添加/编辑图片弹窗 */}
       <Modal
-        title="上传图片"
-        open={uploadModalVisible}
-        onCancel={closeUploadModal}
+        title={modalTitle}
+        open={modalVisible}
+        onCancel={closeModal}
         footer={null}
-        destroyOnClose={true}
+        width={800}
+        className="upload-modal"
+        destroyOnClose
       >
         <Form
           form={form}
           layout="vertical"
-          onFinish={handleUpload}
+          onFinish={handleFormSubmit}
         >
-          <Form.Item label="选择图片">
-            <Upload
-              listType="picture-card"
-              showUploadList={false}
-              beforeUpload={() => false}
-              onChange={handleFileChange}
-            >
-              {selectedFile ? (
-                <img 
-                  src={URL.createObjectURL(selectedFile)} 
-                  alt="预览" 
-                  style={{ width: '100%' }} 
-                />
-              ) : (
-                uploadButton
-              )}
-            </Upload>
-          </Form.Item>
-          
           <Form.Item
             name="name"
             label="图片名称"
@@ -338,45 +417,198 @@ const ImageLibrary = () => {
             <Input placeholder="请输入图片名称" />
           </Form.Item>
           
-          <Form.Item
-            name="type"
-            label="图片类型"
-            initialValue="none"
-          >
-            <Select>
-              <Option value="none">无</Option>
-              <Option value="background">背景图</Option>
-              <Option value="playIcon">播放图标</Option>
-              <Option value="listImage">列表图</Option>
-            </Select>
-          </Form.Item>
+          <div className="upload-section">
+            <div className="upload-row">
+              <div className="upload-col">
+                <Form.Item
+                  label="大图 (必填)"
+                  required
+                >
+                  <Upload
+                    listType="picture-card"
+                    showUploadList={false}
+                    action="/api/upload"
+                    onChange={handleLargeUpload}
+                    customRequest={({ file, onSuccess, onError }) => {
+                      uploadImageToCloud(file)
+                        .then(res => {
+                          if (res.success) {
+                            onSuccess({ fileUrl: res.fileUrl });
+                          } else {
+                            onError(res.error || '上传失败');
+                          }
+                        })
+                        .catch(err => onError(err));
+                    }}
+                  >
+                    {uploadFiles.largeUrl ? (
+                      <img src={uploadFiles.largeUrl} alt="大图" style={{ width: '100%' }} />
+                    ) : (
+                      <div>
+                        <PlusOutlined />
+                        <div style={{ marginTop: 8 }}>上传大图</div>
+                      </div>
+                    )}
+                  </Upload>
+                </Form.Item>
+              </div>
+              
+              <div className="upload-col">
+                <Form.Item
+                  label="缩略图 (必填)"
+                  required
+                >
+                  <Upload
+                    listType="picture-card"
+                    showUploadList={false}
+                    action="/api/upload"
+                    onChange={handleThumbnailUpload}
+                    customRequest={({ file, onSuccess, onError }) => {
+                      uploadImageToCloud(file)
+                        .then(res => {
+                          if (res.success) {
+                            onSuccess({ fileUrl: res.fileUrl });
+                          } else {
+                            onError(res.error || '上传失败');
+                          }
+                        })
+                        .catch(err => onError(err));
+                    }}
+                  >
+                    {uploadFiles.thumbnailUrl ? (
+                      <img src={uploadFiles.thumbnailUrl} alt="缩略图" style={{ width: '100%' }} />
+                    ) : (
+                      <div>
+                        <PlusOutlined />
+                        <div style={{ marginTop: 8 }}>上传缩略图</div>
+                      </div>
+                    )}
+                  </Upload>
+                </Form.Item>
+              </div>
+            </div>
+            
+            <div className="upload-row">
+              <div className="upload-col">
+                <Form.Item
+                  label="播放图 (必填)"
+                  required
+                >
+                  <Upload
+                    listType="picture-card"
+                    showUploadList={false}
+                    action="/api/upload"
+                    onChange={handlePlayUpload}
+                    customRequest={({ file, onSuccess, onError }) => {
+                      uploadImageToCloud(file)
+                        .then(res => {
+                          if (res.success) {
+                            onSuccess({ fileUrl: res.fileUrl });
+                          } else {
+                            onError(res.error || '上传失败');
+                          }
+                        })
+                        .catch(err => onError(err));
+                    }}
+                  >
+                    {uploadFiles.playUrl ? (
+                      <img src={uploadFiles.playUrl} alt="播放图" style={{ width: '100%' }} />
+                    ) : (
+                      <div>
+                        <PlusOutlined />
+                        <div style={{ marginTop: 8 }}>上传播放图</div>
+                      </div>
+                    )}
+                  </Upload>
+                </Form.Item>
+              </div>
+              
+              <div className="upload-col">
+                <Form.Item
+                  label="视频 (选填)"
+                >
+                  <Upload
+                    listType="picture-card"
+                    showUploadList={false}
+                    action="/api/upload"
+                    onChange={handleVideoUpload}
+                    accept="video/*"
+                    customRequest={({ file, onSuccess, onError }) => {
+                      uploadImageToCloud(file)
+                        .then(res => {
+                          if (res.success) {
+                            onSuccess({ fileUrl: res.fileUrl });
+                          } else {
+                            onError(res.error || '上传失败');
+                          }
+                        })
+                        .catch(err => onError(err));
+                    }}
+                  >
+                    {uploadFiles.videoUrl ? (
+                      <div className="video-uploaded">
+                        <div>视频已上传</div>
+                      </div>
+                    ) : (
+                      <div>
+                        <PlusOutlined />
+                        <div style={{ marginTop: 8 }}>上传视频</div>
+                      </div>
+                    )}
+                  </Upload>
+                </Form.Item>
+              </div>
+            </div>
+            
+            <div className="upload-row">
+              <div className="upload-col">
+                <Form.Item
+                  label="动画图 (选填)"
+                >
+                  <Upload
+                    listType="picture-card"
+                    showUploadList={false}
+                    action="/api/upload"
+                    onChange={handleAnimatedUpload}
+                    customRequest={({ file, onSuccess, onError }) => {
+                      uploadImageToCloud(file)
+                        .then(res => {
+                          if (res.success) {
+                            onSuccess({ fileUrl: res.fileUrl });
+                          } else {
+                            onError(res.error || '上传失败');
+                          }
+                        })
+                        .catch(err => onError(err));
+                    }}
+                  >
+                    {uploadFiles.animatedUrl ? (
+                      <img src={uploadFiles.animatedUrl} alt="动画图" style={{ width: '100%' }} />
+                    ) : (
+                      <div>
+                        <PlusOutlined />
+                        <div style={{ marginTop: 8 }}>上传动画图</div>
+                      </div>
+                    )}
+                  </Upload>
+                </Form.Item>
+              </div>
+            </div>
+          </div>
           
-          <Form.Item className="form-actions">
-            <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
-              <Button onClick={closeUploadModal}>
-                取消
-              </Button>
-              <Button 
-                type="primary" 
-                htmlType="submit"
-                loading={uploadLoading}
-                disabled={!selectedFile}
-              >
-                上传
-              </Button>
-            </Space>
-          </Form.Item>
+          <div className="form-actions">
+            <Button onClick={closeModal}>
+              取消
+            </Button>
+            <Button 
+              type="primary" 
+              htmlType="submit"
+              disabled={!uploadFiles.largeUrl || !uploadFiles.thumbnailUrl || !uploadFiles.playUrl}
+            >
+              {editingImage ? '更新' : '添加'}
+            </Button>
+          </div>
         </Form>
-      </Modal>
-      
-      {/* 图片预览弹窗 */}
-      <Modal
-        open={previewVisible}
-        title={previewTitle}
-        footer={null}
-        onCancel={handlePreviewCancel}
-      >
-        <img alt={previewTitle} style={{ width: '100%' }} src={previewImage} />
       </Modal>
     </div>
   );

@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Table, Button, Form, Input, InputNumber, Modal, Tag,
-  message, Popconfirm, Space, Typography, Avatar
+  message, Popconfirm, Space, Typography, Avatar, Card
 } from 'antd';
 import {
-  PlusOutlined, PictureOutlined
+  PlusOutlined, PictureOutlined, EditOutlined, DeleteOutlined,
+  ExclamationCircleOutlined, AppstoreOutlined
 } from '@ant-design/icons';
 import { getCategories, addCategory, updateCategory, deleteCategory } from '../api/categoryApi';
 import ImageSelector from '../components/ImageSelector';
 import '../styles/category.scss';
 
-const { Text } = Typography;
+const { Text, Title } = Typography;
 
 const CategoryManagement = () => {
   // 状态
@@ -68,7 +69,7 @@ const CategoryManagement = () => {
   const showAddMainCategoryModal = () => {
     resetForm();
     form.setFieldsValue({
-      order: categories.filter(c => !c.parentId).length + 1
+      order: 0
     });
     setModalType('add-main');
     setModalVisible(true);
@@ -80,27 +81,24 @@ const CategoryManagement = () => {
     form.setFieldsValue({
       parentId: parentCategory._id,
       parentName: parentCategory.name,
-      order: categories.filter(c => c.parentId === parentCategory._id).length + 1
+      order: 0
     });
     setModalType('add-sub');
     setModalVisible(true);
-    
-    // 确保父分类行被展开
-    if (!expandedRowKeys.includes(parentCategory._id)) {
-      setExpandedRowKeys([...expandedRowKeys, parentCategory._id]);
-    }
   };
 
   // 打开编辑分类弹窗
   const showEditCategoryModal = (category) => {
     resetForm();
     
+    // 设置表单初始值
     const formData = {
       name: category.name,
       order: category.order,
       iconUrl: category.iconUrl
     };
     
+    // 如果是二级分类，需要设置父分类信息
     if (category.parentId) {
       const parentCategory = categories.find(c => c._id === category.parentId);
       formData.parentId = category.parentId;
@@ -116,23 +114,7 @@ const CategoryManagement = () => {
   // 关闭弹窗
   const closeModal = () => {
     setModalVisible(false);
-  };
-
-  // 删除分类
-  const handleDeleteCategory = async (category) => {
-    try {
-      const result = await deleteCategory(category._id);
-      if (result.success) {
-        message.success('分类删除成功');
-        setSelectedCategory(null);
-        // 重新获取分类列表
-        fetchCategories();
-      } else {
-        message.error(result.error || '删除分类失败');
-      }
-    } catch (error) {
-      message.error(`删除失败: ${error.message}`);
-    }
+    setSelectedCategory(null);
   };
 
   // 打开图标选择器
@@ -161,72 +143,106 @@ const CategoryManagement = () => {
 
   // 提交表单
   const onFinish = async (values) => {
-    const formData = { ...values };
-    
-    // 删除非API字段
-    if (formData.parentName) delete formData.parentName;
-    
     try {
-      if (modalType === 'edit') {
-        // 更新分类
-        const result = await updateCategory({
-          id: selectedCategory._id,
-          ...formData
+      if (modalType === 'add-main') {
+        // 添加一级分类
+        const result = await addCategory({
+          name: values.name,
+          order: values.order,
+          iconUrl: values.iconUrl || ''
         });
         
         if (result.success) {
-          message.success('分类更新成功');
-          closeModal();
-          // 重新获取分类列表
+          message.success('添加一级分类成功');
           fetchCategories();
+          closeModal();
+        } else {
+          message.error(result.error || '添加一级分类失败');
+        }
+      } else if (modalType === 'add-sub') {
+        // 添加二级分类
+        const result = await addCategory({
+          name: values.name,
+          parentId: values.parentId,
+          order: values.order
+        });
+        
+        if (result.success) {
+          message.success('添加二级分类成功');
+          fetchCategories();
+          closeModal();
+          
+          // 确保父分类展开
+          setExpandedRowKeys(prev => {
+            if (!prev.includes(values.parentId)) {
+              return [...prev, values.parentId];
+            }
+            return prev;
+          });
+        } else {
+          message.error(result.error || '添加二级分类失败');
+        }
+      } else if (modalType === 'edit') {
+        // 更新分类
+        const updateData = {
+          id: selectedCategory._id,
+          name: values.name,
+          order: values.order
+        };
+        
+        // 如果是一级分类且有图标，添加图标URL
+        if (!selectedCategory.parentId && values.iconUrl) {
+          updateData.iconUrl = values.iconUrl;
+        }
+        
+        const result = await updateCategory(updateData);
+        
+        if (result.success) {
+          message.success('更新分类成功');
+          fetchCategories();
+          closeModal();
         } else {
           message.error(result.error || '更新分类失败');
         }
-      } else {
-        // 添加分类 (主分类或子分类)
-        const result = await addCategory(formData);
-        
-        if (result.success) {
-          message.success('分类添加成功');
-          closeModal();
-          // 重新获取分类列表
-          fetchCategories();
-        } else {
-          message.error(result.error || '添加分类失败');
-        }
       }
     } catch (error) {
-      message.error(`操作失败: ${error.message}`);
+      console.error('操作失败:', error);
+      message.error('操作失败: ' + error.message);
+    }
+  };
+
+  // 删除分类
+  const handleDeleteCategory = async (category) => {
+    try {
+      const result = await deleteCategory(category._id);
+      
+      if (result.success) {
+        message.success('删除分类成功');
+        fetchCategories();
+      } else {
+        message.error(result.error || '删除分类失败');
+      }
+    } catch (error) {
+      console.error('删除分类失败:', error);
+      message.error('删除分类失败: ' + error.message);
     }
   };
 
   // 处理表格展开/收起
   const handleExpand = (expanded, record) => {
     if (expanded) {
-      setExpandedRowKeys([...expandedRowKeys, record._id]);
+      setExpandedRowKeys(prev => [...prev, record._id]);
     } else {
-      setExpandedRowKeys(expandedRowKeys.filter(key => key !== record._id));
+      setExpandedRowKeys(prev => prev.filter(key => key !== record._id));
     }
-  };
-
-  // 准备表格数据
-  const tableData = categories
-    .filter(cat => !cat.parentId)
-    .sort((a, b) => a.order - b.order);
-
-  // 获取子分类数据
-  const getSubCategories = (parentId) => {
-    return categories
-      .filter(cat => cat.parentId === parentId)
-      .sort((a, b) => a.order - b.order);
   };
 
   // 渲染图标
   const renderIcon = (iconUrl) => {
     if (iconUrl) {
-      return <Avatar src={iconUrl} size="small" />;
+      return <Avatar src={iconUrl} size="small" shape="square" />;
     }
-    return <Avatar icon={<PictureOutlined />} size="small" />;
+    return <Avatar icon={<AppstoreOutlined />} size="small" shape="square" style={{ backgroundColor: '#1890ff' }} />;
   };
 
   // 表格列定义
@@ -261,7 +277,7 @@ const CategoryManagement = () => {
       key: 'action',
       width: 250,
       render: (_, record) => (
-        <Space size="middle">
+        <Space className="action-buttons">
           {!record.parentId && (
             <Button 
               type="primary" 
@@ -273,24 +289,25 @@ const CategoryManagement = () => {
             </Button>
           )}
           <Button 
-            type="link" 
+            type="default" 
             size="small"
+            icon={<EditOutlined />}
             onClick={() => showEditCategoryModal(record)}
           >
             编辑
           </Button>
           <Popconfirm
             title="确定要删除这个分类吗?"
-            description={!record.parentId ? "删除后其下的二级分类也会被删除" : "删除后无法恢复"}
+            description={!record.parentId ? "删除一级分类会同时删除其所有子分类!" : ""}
             onConfirm={() => handleDeleteCategory(record)}
             okText="确定"
             cancelText="取消"
-            okButtonProps={{ danger: true }}
+            icon={<ExclamationCircleOutlined style={{ color: 'red' }} />}
           >
             <Button 
-              type="link" 
-              danger
+              danger 
               size="small"
+              icon={<DeleteOutlined />}
             >
               删除
             </Button>
@@ -300,61 +317,50 @@ const CategoryManagement = () => {
     }
   ];
 
+  // 获取子分类
+  const getSubCategories = (parentId) => {
+    return categories
+      .filter(category => category.parentId === parentId)
+      .sort((a, b) => a.order - b.order);
+  };
+
+  // 构建表格数据
+  const tableData = categories
+    .filter(category => !category.parentId)
+    .sort((a, b) => a.order - b.order)
+    .map(category => ({
+      ...category,
+      children: getSubCategories(category._id).length > 0 ? getSubCategories(category._id) : null
+    }));
+
   return (
     <div className="category-management-container">
-      <div className="category-header">
-        <h2>分类管理</h2>
-        <Button 
-          type="primary" 
-          icon={<PlusOutlined />}
-          onClick={showAddMainCategoryModal}
-        >
-          添加一级分类
-        </Button>
-      </div>
+      <Card bordered={false}>
+        <div className="category-header">
+          <Title level={4}>分类管理</Title>
+          <Button 
+            type="primary" 
+            icon={<PlusOutlined />}
+            onClick={showAddMainCategoryModal}
+          >
+            添加一级分类
+          </Button>
+        </div>
+        
+        <Table
+          className="categories-table"
+          columns={columns}
+          dataSource={tableData}
+          rowKey="_id"
+          pagination={false}
+          loading={loading}
+          expandable={{
+            expandedRowKeys,
+            onExpand: handleExpand
+          }}
+        />
+      </Card>
       
-      <Table
-        className="categories-table"
-        columns={columns}
-        dataSource={tableData}
-        rowKey="_id"
-        loading={loading}
-        pagination={false}
-        expandable={{
-          expandedRowKeys,
-          onExpand: handleExpand,
-          expandIcon: ({ expanded, onExpand, record }) => 
-            record.parentId ? null : (
-              expanded ? (
-                <Button type="text" onClick={e => onExpand(record, e)}>
-                  <Tag color="processing">收起</Tag>
-                </Button>
-              ) : (
-                <Button type="text" onClick={e => onExpand(record, e)}>
-                  <Tag>展开</Tag>
-                </Button>
-              )
-            ),
-          expandedRowRender: record => {
-            const subCategories = getSubCategories(record._id);
-            if (subCategories.length === 0) {
-              return <Text type="secondary" style={{ marginLeft: 50 }}>暂无子分类</Text>;
-            }
-            
-            return (
-              <Table 
-                columns={columns}
-                dataSource={subCategories}
-                rowKey="_id"
-                pagination={false}
-                showHeader={false}
-              />
-            );
-          }
-        }}
-      />
-      
-      {/* 添加/编辑分类弹窗 */}
       <Modal
         title={
           modalType === 'add-main' ? '添加一级分类' : 
@@ -433,7 +439,7 @@ const CategoryManagement = () => {
           )}
           
           <Form.Item className="form-actions">
-            <Space style={{ width: '100%', justifyContent: 'flex-end', marginTop: '20px' }}>
+            <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
               <Button onClick={closeModal}>
                 取消
               </Button>

@@ -1,16 +1,36 @@
 .category-management-container {
+  padding: 24px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  
   .category-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #f0f0f0;
     
     h2 {
       margin: 0;
+      font-size: 20px;
+      font-weight: 600;
+      color: #262626;
     }
   }
   
   .categories-table {
+    .ant-table {
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    
+    .ant-table-thead > tr > th {
+      background-color: #fafafa;
+      font-weight: 600;
+    }
+    
     .ant-table-row-expand-icon-cell {
       width: 50px;
     }
@@ -22,9 +42,15 @@
         
         .ant-table {
           margin: 0 !important;
+          box-shadow: none;
+          
+          .ant-table-thead {
+            display: none;
+          }
           
           .ant-table-tbody > tr > td {
             border-bottom: none;
+            padding: 12px 16px;
           }
         }
       }
@@ -33,10 +59,36 @@
     // 二级分类行样式
     .ant-table-row-level-1 {
       background-color: #fafafa;
+      
+      &:hover > td {
+        background-color: #f0f0f0 !important;
+      }
+    }
+    
+    // 操作按钮样式
+    .action-buttons {
+      .ant-btn {
+        margin-right: 8px;
+        
+        &:last-child {
+          margin-right: 0;
+        }
+      }
     }
   }
   
   // Modal样式
+  .ant-modal-content {
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  
+  .ant-modal-header {
+    padding: 16px 24px;
+    background-color: #fafafa;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  
   .ant-modal-body {
     padding: 24px;
     max-height: 70vh;
@@ -45,26 +97,30 @@
   
   .form-actions {
     margin-bottom: 0;
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid #f0f0f0;
   }
   
   // 图标预览样式
   .icon-preview-container {
-    margin-top: 8px;
+    margin-top: 12px;
     
     .icon-preview {
       width: 100px;
       height: 100px;
       border: 1px solid #f0f0f0;
-      border-radius: 4px;
+      border-radius: 8px;
       overflow: hidden;
       position: relative;
       display: flex;
       align-items: center;
       justify-content: center;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
       
       img {
-        max-width: 100%;
-        max-height: 100%;
+        max-width: 80%;
+        max-height: 80%;
         object-fit: contain;
       }
       
@@ -73,18 +129,36 @@
         bottom: 0;
         left: 0;
         right: 0;
-        background-color: rgba(0, 0, 0, 0.5);
+        background-color: rgba(0, 0, 0, 0.6);
         padding: 8px;
         display: flex;
         justify-content: center;
         opacity: 0;
-        transition: opacity 0.3s;
+        transition: opacity 0.3s, transform 0.3s;
+        transform: translateY(100%);
       }
       
       &:hover {
         .icon-actions {
           opacity: 1;
+          transform: translateY(0);
         }
+      }
+    }
+  }
+}
+
+// 响应式调整
+@media (max-width: 768px) {
+  .category-management-container {
+    padding: 16px;
+    
+    .category-header {
+      flex-direction: column;
+      align-items: flex-start;
+      
+      h2 {
+        margin-bottom: 16px;
       }
     }
   }

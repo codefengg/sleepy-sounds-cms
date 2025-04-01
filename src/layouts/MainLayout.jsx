@@ -3,7 +3,8 @@ import { Layout, Menu } from 'antd';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import {
   AppstoreOutlined,
-  PictureOutlined
+  PictureOutlined,
+  ClockCircleOutlined
 } from '@ant-design/icons';
 import '../styles/layout.scss';
 
@@ -23,6 +24,11 @@ const MainLayout = () => {
       key: '/images',
       icon: <PictureOutlined />,
       label: <Link to="/images">图片库</Link>,
+    },
+    {
+      key: '/titles',
+      icon: <ClockCircleOutlined />,
+      label: <Link to="/titles">标题管理</Link>,
     }
   ];
   

@@ -1,0 +1,79 @@
+.title-management-container {
+  .title-management-card {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    
+    .title-management-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      
+      h2 {
+        margin: 0;
+      }
+    }
+    
+    .title-management-info {
+      background-color: #f5f5f5;
+      padding: 12px 16px;
+      border-radius: 4px;
+      margin-bottom: 24px;
+      
+      .anticon {
+        margin-right: 8px;
+      }
+    }
+    
+    .ant-table-wrapper {
+      .ant-table-cell {
+        vertical-align: middle;
+      }
+    }
+  }
+  
+  .form-actions {
+    margin-top: 24px;
+    margin-bottom: 0;
+  }
+}
+
+// 修复时间选择器滚动问题
+.time-picker-popup {
+  .ant-picker-time-panel-column {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+      background-color: rgba(0, 0, 0, 0.2);
+      border-radius: 3px;
+    }
+    
+    &:hover {
+      overflow-y: auto;
+    }
+    
+    .ant-picker-time-panel-cell {
+      height: 28px;
+      line-height: 28px;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .title-management-container {
+    .title-management-header {
+      flex-direction: column;
+      align-items: flex-start;
+      
+      h2 {
+        margin-bottom: 16px;
+      }
+    }
+  }
+} 

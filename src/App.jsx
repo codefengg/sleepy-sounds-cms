@@ -17,6 +17,7 @@ import CategoryManagement from './pages/CategoryManagement';
 import ImageLibrary from './pages/ImageLibrary';
 import MusicManagement from './pages/MusicManagement';
 import AudioLibrary from './pages/AudioLibrary';
+import TitleManagement from './pages/TitleManagement';
 
 // 布局
 import MainLayout from './layouts/MainLayout';
@@ -55,20 +56,20 @@ const App = () => {
                     defaultSelectedKeys={['1']}
                     style={{ height: '100%', borderRight: 0 }}
                   >
-                    <Menu.Item key="1" icon={<HomeOutlined />}>
-                      <Link to="/">首页</Link>
+                    <Menu.Item key="6" icon={<CustomerServiceOutlined />}>
+                      <Link to="/titles">标题管理</Link>
                     </Menu.Item>
                     <Menu.Item key="2" icon={<AppstoreOutlined />}>
                       <Link to="/categories">分类管理</Link>
-                    </Menu.Item>
-                    <Menu.Item key="3" icon={<PictureOutlined />}>
-                      <Link to="/images">图片库</Link>
                     </Menu.Item>
                     <Menu.Item key="4" icon={<CustomerServiceOutlined />}>
                       <Link to="/music">音乐管理</Link>
                     </Menu.Item>
                     <Menu.Item key="5" icon={<CustomerServiceOutlined />}>
                       <Link to="/audios">音频库</Link>
+                    </Menu.Item>
+                    <Menu.Item key="3" icon={<PictureOutlined />}>
+                      <Link to="/images">图片库</Link>
                     </Menu.Item>
                   </Menu>
                 </Sider>
@@ -80,6 +81,7 @@ const App = () => {
                       <Route path="/images" element={<ImageLibrary />} />
                       <Route path="/music" element={<MusicManagement />} />
                       <Route path="/audios" element={<AudioLibrary />} />
+                      <Route path="/titles" element={<TitleManagement />} />
                     </Routes>
                   </Content>
                 </Layout>

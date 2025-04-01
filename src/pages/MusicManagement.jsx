@@ -54,14 +54,13 @@ const MusicManagement = () => {
         if (filters.searchText) {
           const searchText = filters.searchText.toLowerCase();
           filteredData = filteredData.filter(item => 
-            (item.name && item.name.toLowerCase().includes(searchText)) || 
-            (item.title && item.title.toLowerCase().includes(searchText)) || 
-            (item.subtitle && item.subtitle.toLowerCase().includes(searchText))
+            (item.name && item.name.toLowerCase().includes(searchText))
           );
         }
         
         setMusic(filteredData);
         setPagination({
+          ...pagination,
           current: page,
           pageSize,
           total: result.total
@@ -77,7 +76,7 @@ const MusicManagement = () => {
     }
   };
 
-  // 获取所有分类
+  // 获取分类列表
   const fetchCategories = async () => {
     try {
       const result = await getCategories();
@@ -98,47 +97,47 @@ const MusicManagement = () => {
     fetchCategories();
   }, []);
 
-  // 处理表格分页变化
-  const handleTableChange = (pagination) => {
+  // 处理表格变化
+  const handleTableChange = (pagination, filters, sorter) => {
     fetchMusic(pagination.current, pagination.pageSize, filters);
   };
 
-  // 处理分类筛选变化
-  const handleCategoryChange = (value) => {
+  // 处理搜索
+  const handleSearch = (value) => {
+    const newFilters = { ...filters, searchText: value };
+    setFilters(newFilters);
+    fetchMusic(1, pagination.pageSize, newFilters);
+  };
+
+  // 处理分类筛选
+  const handleCategoryFilter = (value) => {
     const newFilters = { ...filters, categoryId: value };
     setFilters(newFilters);
     fetchMusic(1, pagination.pageSize, newFilters);
   };
 
-  // 处理搜索文本变化
-  const handleSearchChange = (e) => {
-    setFilters({ ...filters, searchText: e.target.value });
-  };
-
-  // 处理搜索
-  const handleSearch = () => {
-    fetchMusic(1, pagination.pageSize, filters);
-  };
-
-  // 处理重置筛选
+  // 重置筛选条件
   const handleResetFilters = () => {
-    setFilters({ categoryId: null, searchText: '' });
-    fetchMusic(1, pagination.pageSize, { categoryId: null, searchText: '' });
+    setFilters({
+      categoryId: null,
+      searchText: ''
+    });
+    fetchMusic(1, pagination.pageSize, {});
   };
 
-  // 打开新增音乐弹窗
-  const showAddForm = () => {
+  // 打开添加音乐表单
+  const openAddForm = () => {
     setCurrentMusic(null);
     setFormModalVisible(true);
   };
 
-  // 打开编辑音乐弹窗
-  const showEditForm = (record) => {
+  // 打开编辑音乐表单
+  const openEditForm = (record) => {
     setCurrentMusic(record);
     setFormModalVisible(true);
   };
 
-  // 关闭表单弹窗
+  // 关闭表单
   const closeFormModal = () => {
     setFormModalVisible(false);
     setCurrentMusic(null);
@@ -148,26 +147,30 @@ const MusicManagement = () => {
   const handleFormSubmit = async (values) => {
     setFormLoading(true);
     try {
-      let result;
-      
       if (currentMusic) {
         // 更新音乐
-        result = await updateMusic(currentMusic._id, values);
+        const result = await updateMusic(currentMusic._id, values);
+        if (result.success) {
+          message.success('音乐更新成功');
+          closeFormModal();
+          fetchMusic(pagination.current, pagination.pageSize, filters);
+        } else {
+          message.error(result.error || '更新音乐失败');
+        }
       } else {
         // 添加音乐
-        result = await addMusic(values);
-      }
-      
-      if (result.success) {
-        message.success(currentMusic ? '音乐更新成功' : '音乐添加成功');
-        closeFormModal();
-        // 重新获取音乐列表
-        fetchMusic(pagination.current, pagination.pageSize, filters);
-      } else {
-        message.error(result.error || (currentMusic ? '更新音乐失败' : '添加音乐失败'));
+        const result = await addMusic(values);
+        if (result.success) {
+          message.success('音乐添加成功');
+          closeFormModal();
+          fetchMusic(pagination.current, pagination.pageSize, filters);
+        } else {
+          message.error(result.error || '添加音乐失败');
+        }
       }
     } catch (error) {
-      message.error((currentMusic ? '更新' : '添加') + '音乐失败: ' + error.message);
+      console.error('提交表单失败:', error);
+      message.error('提交表单失败: ' + error.message);
     } finally {
       setFormLoading(false);
     }
@@ -179,32 +182,26 @@ const MusicManagement = () => {
       const result = await deleteMusic(id);
       if (result.success) {
         message.success('音乐删除成功');
-        // 重新获取音乐列表
         fetchMusic(pagination.current, pagination.pageSize, filters);
       } else {
         message.error(result.error || '删除音乐失败');
       }
     } catch (error) {
+      console.error('删除音乐失败:', error);
       message.error('删除音乐失败: ' + error.message);
     }
   };
 
-  // 格式化日期
-  const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    return moment(dateString).format('YYYY-MM-DD HH:mm:ss');
-  };
-
   // 获取分类名称
   const getCategoryName = (categoryId) => {
-    if (!categoryId) return '-';
-    
     const category = categories.find(c => c._id === categoryId);
-    if (!category) return categoryId;
+    if (!category) return '未分类';
     
     if (category.parentId) {
       const parentCategory = categories.find(c => c._id === category.parentId);
-      return parentCategory ? `${parentCategory.name} / ${category.name}` : category.name;
+      if (parentCategory) {
+        return `${parentCategory.name} / ${category.name}`;
+      }
     }
     
     return category.name;
@@ -233,48 +230,29 @@ const MusicManagement = () => {
       render: (text, record) => (
         <div className="music-name-cell">
           {record.listImageUrl && (
-            <img 
+            <Image 
               src={record.listImageUrl} 
-              alt={text} 
-              className="music-thumbnail" 
+              alt={text}
+              className="music-thumbnail"
+              preview={false}
             />
           )}
-          <span>{text || '-'}</span>
+          <span>{text}</span>
         </div>
-      )
+      ),
     },
     {
-      title: '标题',
-      dataIndex: 'title',
-      key: 'title',
-      render: text => text || '-'
-    },
-    {
-      title: '副标题',
-      dataIndex: 'subtitle',
-      key: 'subtitle',
-      render: text => text || '-'
-    },
-    {
-      title: '音乐链接',
-      dataIndex: 'audioUrl',
-      key: 'audioUrl',
-      render: (text) => (
-        <a href={text} target="_blank" rel="noopener noreferrer">
-          <LinkOutlined /> 链接
-        </a>
-      )
+      title: '分类',
+      dataIndex: 'categoryId',
+      key: 'categoryId',
+      render: categoryId => (
+        <Tag color="blue">{getCategoryName(categoryId)}</Tag>
+      ),
     },
     {
       title: '背景图',
       dataIndex: 'backgroundUrl',
       key: 'backgroundUrl',
-      render: renderImage
-    },
-    {
-      title: '播放图标',
-      dataIndex: 'iconUrl',
-      key: 'iconUrl',
       render: renderImage
     },
     {
@@ -284,46 +262,51 @@ const MusicManagement = () => {
       render: renderImage
     },
     {
-      title: '分类',
-      dataIndex: 'categoryId',
-      key: 'categoryId',
-      render: (categoryId) => getCategoryName(categoryId)
+      title: '播放图标',
+      dataIndex: 'iconUrl',
+      key: 'iconUrl',
+      render: renderImage
     },
     {
       title: '创建时间',
       dataIndex: 'createTime',
       key: 'createTime',
-      render: (text) => formatDate(text)
+      render: time => time ? moment(time).format('YYYY-MM-DD HH:mm') : '-',
+      sorter: (a, b) => {
+        if (!a.createTime || !b.createTime) return 0;
+        return new Date(a.createTime) - new Date(b.createTime);
+      },
     },
     {
       title: '操作',
       key: 'action',
-      width: 120,
-      fixed: 'right',
+      width: 200,
       render: (_, record) => (
-        <Space size="small">
+        <Space size="middle">
           <Button 
-            type="text" 
-            icon={<EditOutlined />} 
-            onClick={() => showEditForm(record)}
-          />
+            type="link" 
+            icon={<EditOutlined />}
+            onClick={() => openEditForm(record)}
+          >
+            编辑
+          </Button>
           <Popconfirm
-            title="确定要删除这条音乐吗?"
-            description="删除后无法恢复"
+            title="确定要删除这个音乐吗？"
             onConfirm={() => handleDelete(record._id)}
             okText="确定"
             cancelText="取消"
-            okButtonProps={{ danger: true }}
           >
             <Button 
-              type="text" 
-              danger 
-              icon={<DeleteOutlined />} 
-            />
+              type="link" 
+              danger
+              icon={<DeleteOutlined />}
+            >
+              删除
+            </Button>
           </Popconfirm>
         </Space>
-      )
-    }
+      ),
+    },
   ];
 
   return (
@@ -334,7 +317,7 @@ const MusicManagement = () => {
           <Button 
             type="primary" 
             icon={<PlusOutlined />}
-            onClick={showAddForm}
+            onClick={openAddForm}
           >
             添加音乐
           </Button>
@@ -342,30 +325,23 @@ const MusicManagement = () => {
         
         <div className="music-filter-container">
           <div className="filter-item">
-            <Input 
-              placeholder="搜索音乐名称、标题或副标题" 
-              value={filters.searchText}
-              onChange={handleSearchChange}
-              onPressEnter={handleSearch}
-              prefix={<SearchOutlined />}
+            <Input.Search
+              placeholder="搜索音乐名称"
+              allowClear
+              onSearch={handleSearch}
               style={{ width: 250 }}
+              value={filters.searchText}
+              onChange={e => setFilters({...filters, searchText: e.target.value})}
             />
-            <Button 
-              type="primary" 
-              onClick={handleSearch}
-              style={{ marginLeft: 8 }}
-            >
-              搜索
-            </Button>
           </div>
           
           <div className="filter-item">
             <Select
               placeholder="按分类筛选"
-              allowClear
               style={{ width: 200 }}
+              allowClear
               value={filters.categoryId}
-              onChange={handleCategoryChange}
+              onChange={handleCategoryFilter}
             >
               {categories.map(category => {
                 // 一级分类

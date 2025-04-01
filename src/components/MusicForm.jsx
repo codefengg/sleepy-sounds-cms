@@ -12,15 +12,11 @@ const { TextArea } = Input;
 const MusicForm = ({ initialValues, onFinish, onCancel, loading }) => {
   const [form] = Form.useForm();
   const [categories, setCategories] = useState([]);
-  const [imageType, setImageType] = useState(null);
   const [imageSelector, setImageSelector] = useState({
-    visible: false,
-    field: null,
-    title: ''
+    visible: false
   });
   const [audioSelector, setAudioSelector] = useState({
-    visible: false,
-    field: null
+    visible: false
   });
   const [audioName, setAudioName] = useState('');
 
@@ -52,56 +48,86 @@ const MusicForm = ({ initialValues, onFinish, onCancel, loading }) => {
   }, [initialValues, form]);
 
   // 打开图片选择器
-  const openImageSelector = (field, title, type) => {
-    console.log('打开图片选择器:', field, title, type); // 添加日志
-    setImageType(type);
+  const openImageSelector = () => {
     setImageSelector({
-      visible: true,
-      field,
-      title
+      visible: true
     });
   };
 
   // 关闭图片选择器
   const closeImageSelector = () => {
     setImageSelector({
-      ...imageSelector,
       visible: false
     });
   };
 
-  // 处理图片选择
+  // 处理图片选择 - 现在一次性设置多个字段
   const handleImageSelect = (image) => {
-    console.log('选择图片:', image); // 添加日志
     form.setFieldsValue({
-      [imageSelector.field]: image.url
+      backgroundUrl: image.largeUrl,      // 背景图对应大图
+      listImageUrl: image.thumbnailUrl,   // 列表图对应缩略图
+      iconUrl: image.playUrl              // 播放图标对应播放图
     });
     closeImageSelector();
   };
 
-  // 渲染图片预览
-  const renderImagePreview = (url, field, title, type) => {
+  // 渲染图片预览区域
+  const renderImagePreview = () => {
+    const backgroundUrl = form.getFieldValue('backgroundUrl');
+    const listImageUrl = form.getFieldValue('listImageUrl');
+    const iconUrl = form.getFieldValue('iconUrl');
+    
+    const hasImages = backgroundUrl || listImageUrl || iconUrl;
+    
     return (
       <div className="image-preview-container">
-        {url ? (
-          <div className="image-preview">
-            <img src={url} alt={title} />
+        {hasImages ? (
+          <div className="image-preview-grid">
+            <div className="image-preview-item">
+              <div className="image-label">背景图</div>
+              <div className="image-preview">
+                {backgroundUrl ? (
+                  <img src={backgroundUrl} alt="背景图" />
+                ) : (
+                  <div className="no-image">无图片</div>
+                )}
+              </div>
+            </div>
+            <div className="image-preview-item">
+              <div className="image-label">列表图</div>
+              <div className="image-preview">
+                {listImageUrl ? (
+                  <img src={listImageUrl} alt="列表图" />
+                ) : (
+                  <div className="no-image">无图片</div>
+                )}
+              </div>
+            </div>
+            <div className="image-preview-item">
+              <div className="image-label">播放图标</div>
+              <div className="image-preview">
+                {iconUrl ? (
+                  <img src={iconUrl} alt="播放图标" />
+                ) : (
+                  <div className="no-image">无图片</div>
+                )}
+              </div>
+            </div>
             <div className="image-actions">
               <Button 
                 type="primary" 
-                size="small"
-                onClick={() => openImageSelector(field, title, type)}
+                onClick={openImageSelector}
               >
-                更换
+                更换图片
               </Button>
             </div>
           </div>
         ) : (
           <Button 
             icon={<PictureOutlined />} 
-            onClick={() => openImageSelector(field, title, type)}
+            onClick={openImageSelector}
           >
-            选择{title}
+            选择图片套装
           </Button>
         )}
       </div>
@@ -111,47 +137,24 @@ const MusicForm = ({ initialValues, onFinish, onCancel, loading }) => {
   // 打开音频选择器
   const openAudioSelector = () => {
     setAudioSelector({
-      visible: true,
-      field: 'audioUrl'
+      visible: true
     });
   };
 
   // 关闭音频选择器
   const closeAudioSelector = () => {
     setAudioSelector({
-      visible: false,
-      field: null
+      visible: false
     });
   };
 
   // 处理音频选择
   const handleAudioSelect = (audio) => {
-    setAudioName(audio.name);
     form.setFieldsValue({
-      audioUrl: audio.url
+      audioUrl: audio.url,
     });
     closeAudioSelector();
   };
-
-  // 渲染音频预览
-  const renderAudioPreview = (url) => (
-    <div className="audio-preview-container">
-      {url ? (
-        <div className="audio-preview">
-          <audio src={url} controls />
-          <div className="audio-actions">
-            <Button type="primary" onClick={openAudioSelector}>
-              重新选择
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <Button type="dashed" onClick={openAudioSelector} style={{ width: '100%' }}>
-          选择音频
-        </Button>
-      )}
-    </div>
-  );
 
   // 处理表单提交
   const handleSubmit = (values) => {
@@ -164,52 +167,39 @@ const MusicForm = ({ initialValues, onFinish, onCancel, loading }) => {
         form={form}
         layout="vertical"
         onFinish={handleSubmit}
-        initialValues={initialValues || {}}
       >
         <Form.Item
           name="audioUrl"
-          label="音频链接"
+          label="音频"
           rules={[{ required: true, message: '请选择音频' }]}
         >
-          <Input 
-            value={audioName || '请选择音频'}
-            placeholder="请选择音频" 
-            readOnly 
-            className="audio-input"
-            addonAfter={
-              <Button type="link" onClick={openAudioSelector} style={{ padding: 0 }}>
+          <Input hidden />
+          <div className="audio-preview-container">
+            {form.getFieldValue('audioUrl') ? (
+              <div className="audio-preview">
+                <audio src={form.getFieldValue('audioUrl')} controls />
+                <div>{audioName || form.getFieldValue('name')}</div>
+                <Button 
+                  type="link" 
+                  onClick={openAudioSelector}
+                >
+                  更换音频
+                </Button>
+              </div>
+            ) : (
+              <Button onClick={openAudioSelector}>
                 选择音频
               </Button>
-            }
-          />
-          {form.getFieldValue('audioUrl') && (
-            <div style={{ marginTop: 8 }}>
-              <audio src={form.getFieldValue('audioUrl')} controls />
-            </div>
-          )}
+            )}
+          </div>
         </Form.Item>
         
         <Form.Item
-          label="音乐名称"
           name="name"
+          label="音乐名称"
           rules={[{ required: true, message: '请输入音乐名称' }]}
         >
           <Input placeholder="请输入音乐名称" />
-        </Form.Item>
-        
-        <Form.Item
-          label="标题"
-          name="title"
-          rules={[{ required: true, message: '请输入标题' }]}
-        >
-          <Input placeholder="请输入标题" />
-        </Form.Item>
-        
-        <Form.Item
-          label="副标题"
-          name="subtitle"
-        >
-          <Input placeholder="请输入副标题（可选）" />
         </Form.Item>
         
         <Form.Item
@@ -244,43 +234,19 @@ const MusicForm = ({ initialValues, onFinish, onCancel, loading }) => {
           </Select>
         </Form.Item>
         
-        <Form.Item
-          name="backgroundUrl"
-          label="背景图"
-        >
-          <Input hidden />
-          {renderImagePreview(
-            form.getFieldValue('backgroundUrl'), 
-            'backgroundUrl', 
-            '背景图',
-            'background'
-          )}
+        {/* 隐藏字段 - 用于存储图片URL */}
+        <Form.Item name="backgroundUrl" hidden>
+          <Input />
+        </Form.Item>
+        <Form.Item name="iconUrl" hidden>
+          <Input />
+        </Form.Item>
+        <Form.Item name="listImageUrl" hidden>
+          <Input />
         </Form.Item>
         
-        <Form.Item
-          name="iconUrl"
-          label="播放图标"
-        >
-          <Input hidden />
-          {renderImagePreview(
-            form.getFieldValue('iconUrl'), 
-            'iconUrl', 
-            '播放图标',
-            'playIcon'
-          )}
-        </Form.Item>
-        
-        <Form.Item
-          name="listImageUrl"
-          label="列表图"
-        >
-          <Input hidden />
-          {renderImagePreview(
-            form.getFieldValue('listImageUrl'), 
-            'listImageUrl', 
-            '列表图',
-            'listImage'
-          )}
+        <Form.Item label="图片设置">
+          {renderImagePreview()}
         </Form.Item>
         
         <Form.Item className="form-actions">
@@ -303,8 +269,7 @@ const MusicForm = ({ initialValues, onFinish, onCancel, loading }) => {
         visible={imageSelector.visible}
         onCancel={closeImageSelector}
         onSelect={handleImageSelect}
-        title={`选择${imageSelector.title}`}
-        imageType={imageType}
+        title="选择图片套装"
       />
       <AudioSelector
         visible={audioSelector.visible}

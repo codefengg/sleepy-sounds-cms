@@ -1,40 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, Spin, Empty, Tabs, message } from 'antd';
+import { Modal, Button, Spin, Empty, Table, message, Image } from 'antd';
 import { CheckCircleFilled } from '@ant-design/icons';
 import { getImages } from '../api/imageApi';
-import Masonry from 'react-masonry-css';
 import '../styles/imageSelector.scss';
 
-const ImageSelector = ({ visible, onCancel, onSelect, title = '选择图片', imageType = null }) => {
+const ImageSelector = ({ visible, onCancel, onSelect, title = '选择图片' }) => {
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
-  const [activeTab, setActiveTab] = useState(imageType || 'all');
-
-  // 瀑布流的断点设置
-  const breakpointColumnsObj = {
-    default: 4,
-    1100: 3,
-    700: 2,
-    500: 1
-  };
 
   // 获取图片列表
-  const fetchImages = async (type = null) => {
+  const fetchImages = async () => {
     setLoading(true);
     try {
       const params = { limit: 100 }; // 获取较多图片
       
-      if (type && type !== 'all') {
-        params.type = type;
-      }
-      
       const result = await getImages(params);
       if (result.success) {
         setImages(result.data);
-        console.log('获取到图片数据:', result.data);
       } else {
-        message.error(result.error || '获取图片列表失败');
+        message.error(result.message || '获取图片列表失败');
       }
     } catch (error) {
       console.error('获取图片列表失败:', error);
@@ -47,19 +32,14 @@ const ImageSelector = ({ visible, onCancel, onSelect, title = '选择图片', im
   // 组件挂载或弹窗显示时获取图片列表
   useEffect(() => {
     if (visible) {
-      fetchImages(activeTab !== 'all' ? activeTab : null);
+      fetchImages();
       setSelectedImage(null); // 重置选中状态
     }
-  }, [visible, activeTab]);
+  }, [visible]);
 
   // 处理图片选择
-  const handleImageClick = (image) => {
+  const handleImageSelect = (image) => {
     setSelectedImage(image);
-  };
-
-  // 处理标签切换
-  const handleTabChange = (key) => {
-    setActiveTab(key);
   };
 
   // 处理确认选择
@@ -67,16 +47,56 @@ const ImageSelector = ({ visible, onCancel, onSelect, title = '选择图片', im
     if (selectedImage) {
       onSelect(selectedImage);
     } else {
-      message.warning('请选择一张图片');
+      message.warning('请选择一套图片');
     }
   };
+
+  // 表格列定义
+  const columns = [
+    {
+      title: '名称',
+      dataIndex: 'name',
+      key: 'name',
+      width: 150,
+    },
+    {
+      title: '大图',
+      dataIndex: 'largeUrl',
+      key: 'largeUrl',
+      render: (url) => (
+        <div className="image-thumbnail">
+          <Image src={url} alt="大图" width={80} height={80} />
+        </div>
+      ),
+    },
+    {
+      title: '缩略图',
+      dataIndex: 'thumbnailUrl',
+      key: 'thumbnailUrl',
+      render: (url) => (
+        <div className="image-thumbnail">
+          <Image src={url} alt="缩略图" width={80} height={80} />
+        </div>
+      ),
+    },
+    {
+      title: '播放图',
+      dataIndex: 'playUrl',
+      key: 'playUrl',
+      render: (url) => (
+        <div className="image-thumbnail">
+          <Image src={url} alt="播放图" width={80} height={80} />
+        </div>
+      ),
+    },
+  ];
 
   return (
     <Modal
       title={title}
       open={visible}
       onCancel={onCancel}
-      width={800}
+      width={900}
       footer={[
         <Button key="cancel" onClick={onCancel}>
           取消
@@ -91,39 +111,29 @@ const ImageSelector = ({ visible, onCancel, onSelect, title = '选择图片', im
         </Button>
       ]}
     >
-      <Tabs activeKey={activeTab} onChange={handleTabChange}>
-        <Tabs.TabPane tab="全部" key="all" />
-        <Tabs.TabPane tab="背景图" key="background" />
-        <Tabs.TabPane tab="播放图标" key="playIcon" />
-        <Tabs.TabPane tab="列表图" key="listImage" />
-      </Tabs>
-      
       <Spin spinning={loading}>
         <div className="image-selector-container">
           {images.length > 0 ? (
-            <Masonry
-              breakpointCols={breakpointColumnsObj}
-              className="masonry-grid"
-              columnClassName="masonry-grid_column"
-            >
-              {images.map(image => (
-                <div 
-                  key={image._id} 
-                  className={`image-item ${selectedImage?._id === image._id ? 'selected' : ''}`}
-                  onClick={() => handleImageClick(image)}
-                >
-                  {selectedImage?._id === image._id && (
-                    <div className="selected-icon">
-                      <CheckCircleFilled />
-                    </div>
-                  )}
-                  <div className="image-wrapper">
-                    <img src={image.url} alt={image.name} />
-                  </div>
-                  <div className="image-name">{image.name}</div>
-                </div>
-              ))}
-            </Masonry>
+            <Table
+              rowKey="_id"
+              columns={columns}
+              dataSource={images}
+              pagination={{ pageSize: 5 }}
+              rowSelection={{
+                type: 'radio',
+                selectedRowKeys: selectedImage ? [selectedImage._id] : [],
+                onChange: (_, selectedRows) => {
+                  if (selectedRows.length > 0) {
+                    setSelectedImage(selectedRows[0]);
+                  } else {
+                    setSelectedImage(null);
+                  }
+                }
+              }}
+              onRow={(record) => ({
+                onClick: () => handleImageSelect(record),
+              })}
+            />
           ) : (
             <Empty description="暂无图片" />
           )}

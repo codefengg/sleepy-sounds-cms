@@ -1,4 +1,4 @@
-import { callFunction } from './cloudApi';
+import { callFunction, getCloudInstance } from './cloudApi';
 
 /**
  * 获取分类列表
@@ -52,3 +52,49 @@ export const deleteCategory = async (id) => {
     id
   });
 }; 
+
+/**
+ * 上传图片到云存储
+ * @param {File} file - 要上传的文件
+ * @returns {Promise<Object>} 包含上传结果的响应
+ */
+export const uploadImageToCloud = async (file) => {
+  try {
+    const cloudInstance = getCloudInstance();
+    if (!cloudInstance) {
+      throw new Error('云开发SDK尚未初始化');
+    }
+    
+    // 获取文件扩展名
+    const ext = file.name.substring(file.name.lastIndexOf('.'));
+    // 生成随机文件名
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}${ext}`;
+    const cloudPath = `images/${fileName}`;
+    
+    console.log('开始上传文件到云存储:', cloudPath);
+    
+    // 使用Promise风格调用
+    cloudInstance.uploadFile({
+      cloudPath,
+      file,
+      config: {
+        env: '636c-cloud1-7g7ul2l734c0683b-1349745487'
+      }
+    });
+        
+    // 直接拼接URL而不是调用getTempFileURL
+    const fileUrl = `https://636c-cloud1-7g7ul2l734c0683b-1349745487.tcb.qcloud.la/${cloudPath}`;
+    console.log('拼接的文件访问链接:', fileUrl);
+    
+    return {
+      success: true,
+      fileUrl
+    };
+  } catch (error) {
+    console.error('上传文件失败:', error);
+    return {
+      success: false,
+      error: error.message || '上传文件失败'
+    };
+  }
+};

@@ -19,6 +19,11 @@ const MusicForm = ({ initialValues, onFinish, onCancel, loading }) => {
     visible: false
   });
   const [audioName, setAudioName] = useState('');
+  const [processedCategories, setProcessedCategories] = useState({
+    mainCategories: [],
+    subCategories: [],
+    mainCategoriesWithSubs: new Set()
+  });
 
   // 获取所有分类
   const fetchCategories = async () => {
@@ -26,6 +31,27 @@ const MusicForm = ({ initialValues, onFinish, onCancel, loading }) => {
       const result = await getCategories();
       if (result.success) {
         setCategories(result.data);
+        
+        // 处理分类数据，找出有子分类的一级分类
+        const mainCategories = [];
+        const subCategories = [];
+        const mainCategoriesWithSubs = new Set();
+        
+        // 先找出所有二级分类及其父级
+        result.data.forEach(category => {
+          if (category.parentId) {
+            subCategories.push(category);
+            mainCategoriesWithSubs.add(category.parentId);
+          } else {
+            mainCategories.push(category);
+          }
+        });
+        
+        setProcessedCategories({
+          mainCategories,
+          subCategories,
+          mainCategoriesWithSubs
+        });
       } else {
         message.error(result.error || '获取分类列表失败');
       }
@@ -208,9 +234,10 @@ const MusicForm = ({ initialValues, onFinish, onCancel, loading }) => {
           rules={[{ required: true, message: '请选择所属分类' }]}
         >
           <Select placeholder="请选择所属分类">
-            {categories.map(category => {
-              // 一级分类
-              if (!category.parentId) {
+            {/* 一级分类（只显示没有子分类的） */}
+            {processedCategories.mainCategories.map(category => {
+              // 如果这个一级分类没有子分类，才显示
+              if (!processedCategories.mainCategoriesWithSubs.has(category._id)) {
                 return (
                   <Option key={category._id} value={category._id}>
                     {category.name}
@@ -219,17 +246,15 @@ const MusicForm = ({ initialValues, onFinish, onCancel, loading }) => {
               }
               return null;
             })}
-            {categories.map(category => {
-              // 二级分类
-              if (category.parentId) {
-                const parentCategory = categories.find(c => c._id === category.parentId);
-                return (
-                  <Option key={category._id} value={category._id}>
-                    {parentCategory ? `${parentCategory.name} / ${category.name}` : category.name}
-                  </Option>
-                );
-              }
-              return null;
+            
+            {/* 二级分类 */}
+            {processedCategories.subCategories.map(category => {
+              const parentCategory = categories.find(c => c._id === category.parentId);
+              return (
+                <Option key={category._id} value={category._id}>
+                  {parentCategory ? `${parentCategory.name} / ${category.name}` : category.name}
+                </Option>
+              );
             })}
           </Select>
         </Form.Item>

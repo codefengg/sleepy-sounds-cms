@@ -82,7 +82,6 @@ const MusicManagement = () => {
     categoryId: null,
     searchText: ''
   });
-  const [orderType, setOrderType] = useState('globalOrder'); // 'globalOrder' 或 'categoryOrder'
   const [savingOrder, setSavingOrder] = useState(false);
   const [showInitButton, setShowInitButton] = useState(false);
 
@@ -94,6 +93,9 @@ const MusicManagement = () => {
         limit: pageSize,
         skip: (page - 1) * pageSize
       };
+      
+      // 确定当前使用的排序类型
+      const currentOrderType = filters.categoryId ? 'categoryOrder' : 'globalOrder';
       
       if (filters.categoryId) {
         params.categoryId = filters.categoryId;
@@ -113,11 +115,11 @@ const MusicManagement = () => {
         // 根据当前排序类型排序
         const sortedData = [...filteredData].sort((a, b) => {
           // 检查是否有排序值，如果没有则显示初始化按钮
-          if (a[orderType] === undefined || b[orderType] === undefined) {
+          if (a[currentOrderType] === undefined || b[currentOrderType] === undefined) {
             setShowInitButton(true);
             return 0;
           }
-          return (a[orderType] || 0) - (b[orderType] || 0);
+          return (a[currentOrderType] || 0) - (b[currentOrderType] || 0);
         });
         
         setMusic(sortedData);
@@ -158,11 +160,6 @@ const MusicManagement = () => {
     fetchMusic(pagination.current, pagination.pageSize, filters);
     fetchCategories();
   }, []);
-
-  // 当排序类型变化时重新获取数据
-  useEffect(() => {
-    fetchMusic(pagination.current, pagination.pageSize, filters);
-  }, [orderType]);
 
   // 处理表格变化
   const handleTableChange = (pagination, filters, sorter) => {
@@ -256,11 +253,6 @@ const MusicManagement = () => {
     }
   };
 
-  // 处理排序类型变更
-  const handleOrderTypeChange = (value) => {
-    setOrderType(value);
-  };
-
   // 初始化排序值
   const initializeOrders = async () => {
     try {
@@ -283,6 +275,9 @@ const MusicManagement = () => {
 
   // 处理拖拽排序
   const moveRow = async (dragIndex, hoverIndex) => {
+    // 确定当前使用的排序类型
+    const currentOrderType = filters.categoryId ? 'categoryOrder' : 'globalOrder';
+    
     // 更新本地状态
     const dragRow = music[dragIndex];
     const newData = [...music];
@@ -293,7 +288,7 @@ const MusicManagement = () => {
     // 计算新的排序值
     const updatedItems = newData.map((item, index) => ({
       id: item._id,
-      order: (index + 1) * 10 // 使用间隔为10的排序值
+      order: (index + 1) * 10
     }));
     
     // 保存到服务器
@@ -302,17 +297,19 @@ const MusicManagement = () => {
       
       const result = await batchUpdateMusicOrder({
         items: updatedItems,
-        orderType
+        orderType: currentOrderType
       });
       
-      if (!result.success) {
+      if (result.success) {
+        message.success('排序已更新');
+      } else {
         message.error('保存排序失败: ' + (result.error || '未知错误'));
         // 如果保存失败，重新获取数据
         fetchMusic(pagination.current, pagination.pageSize, filters);
       }
     } catch (error) {
       console.error('保存排序失败:', error);
-      message.error('保存排序失败，请重试');
+      message.error('保存排序失败: ' + error.message);
       // 如果出错，重新获取数据
       fetchMusic(pagination.current, pagination.pageSize, filters);
     } finally {
@@ -346,6 +343,22 @@ const MusicManagement = () => {
         style={{ objectFit: 'contain' }}
         placeholder={<div style={{ width: 60, height: 60, background: '#f0f0f0' }} />}
       />
+    );
+  };
+
+  // 修改排序提示文本
+  const renderSortInstructions = () => {
+    const currentOrderType = filters.categoryId ? 'categoryOrder' : 'globalOrder';
+    const sortTypeText = filters.categoryId ? '分类内排序' : '全局排序';
+    
+    return (
+      <div className="sort-instructions">
+        <InfoCircleOutlined style={{ marginRight: 8 }} />
+        <Text type="secondary">
+          提示: 拖拽音乐行可以调整{filters.categoryId ? '当前分类内' : '全局'}排序。当前使用
+          <Text strong>{sortTypeText}</Text>。
+        </Text>
+      </div>
     );
   };
 
@@ -494,29 +507,39 @@ const MusicManagement = () => {
               value={filters.categoryId}
               onChange={handleCategoryFilter}
             >
-              {categories.map(category => {
-                // 一级分类
-                if (!category.parentId) {
-                  return (
+              {/* 首先处理分类数据，找出有子分类的一级分类 */}
+              {(() => {
+                // 找出所有有子分类的一级分类ID
+                const parentCategoryIds = new Set(
+                  categories
+                    .filter(c => c.parentId)
+                    .map(c => c.parentId)
+                );
+                
+                // 渲染没有子分类的一级分类
+                const mainCategories = categories
+                  .filter(c => !c.parentId && !parentCategoryIds.has(c._id))
+                  .map(category => (
                     <Option key={category._id} value={category._id}>
                       {category.name}
                     </Option>
-                  );
-                }
-                return null;
-              })}
-              {categories.map(category => {
-                // 二级分类
-                if (category.parentId) {
-                  const parentCategory = categories.find(c => c._id === category.parentId);
-                  return (
-                    <Option key={category._id} value={category._id}>
-                      {parentCategory ? `${parentCategory.name} / ${category.name}` : category.name}
-                    </Option>
-                  );
-                }
-                return null;
-              })}
+                  ));
+                
+                // 渲染所有二级分类
+                const subCategories = categories
+                  .filter(c => c.parentId)
+                  .map(category => {
+                    const parentCategory = categories.find(c => c._id === category.parentId);
+                    return (
+                      <Option key={category._id} value={category._id}>
+                        {parentCategory ? `${parentCategory.name} / ${category.name}` : category.name}
+                      </Option>
+                    );
+                  });
+                
+                // 返回所有选项
+                return [...mainCategories, ...subCategories];
+              })()}
             </Select>
             
             <Button 
@@ -526,25 +549,10 @@ const MusicManagement = () => {
             >
               重置
             </Button>
-            
-            <Select
-              value={orderType}
-              style={{ width: 150, marginLeft: 16 }}
-              onChange={handleOrderTypeChange}
-            >
-              <Option value="globalOrder">全局排序</Option>
-              <Option value="categoryOrder">分类内排序</Option>
-            </Select>
           </div>
         </div>
         
-        <div className="sort-instructions">
-          <InfoCircleOutlined style={{ marginRight: 8 }} />
-          <Text type="secondary">
-            提示: 拖拽音乐行可以调整{orderType === 'globalOrder' ? '全局' : '分类内'}排序。当前使用
-            <Text strong>{orderType === 'globalOrder' ? '全局排序' : '分类内排序'}</Text>。
-          </Text>
-        </div>
+        {renderSortInstructions()}
         
         <DndProvider backend={HTML5Backend}>
           <Table

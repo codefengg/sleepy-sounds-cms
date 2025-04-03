@@ -1,20 +1,69 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Table, Button, Space, Modal, message, 
-  Popconfirm, Tag, Input, Select, Card, Typography, Image
+  Popconfirm, Tag, Input, Select, Card, Typography, Image, Tooltip
 } from 'antd';
 import { 
   PlusOutlined, EditOutlined, DeleteOutlined, 
-  SearchOutlined, ReloadOutlined, LinkOutlined
+  SearchOutlined, ReloadOutlined, LinkOutlined, InfoCircleOutlined, OrderedListOutlined
 } from '@ant-design/icons';
 import moment from 'moment';
-import { getMusic, addMusic, updateMusic, deleteMusic } from '../api/musicApi';
+import { 
+  getMusic, addMusic, updateMusic, deleteMusic, 
+  batchUpdateMusicOrder, initializeOrderValues 
+} from '../api/musicApi';
 import { getCategories } from '../api/categoryApi';
 import MusicForm from '../components/MusicForm';
 import '../styles/musicManagement.scss';
+import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
+
+// 定义拖拽类型
+const type = 'DraggableRow';
+
+// 可拖拽的表格行组件
+const DraggableRow = ({ index, moveRow, className, style, ...restProps }) => {
+  const ref = useRef();
+  
+  const [{ isOver, dropClassName }, drop] = useDrop({
+    accept: type,
+    collect: monitor => {
+      const { index: dragIndex } = monitor.getItem() || {};
+      if (dragIndex === index) {
+        return {};
+      }
+      return {
+        isOver: monitor.isOver(),
+        dropClassName: dragIndex < index ? 'drop-over-downward' : 'drop-over-upward',
+      };
+    },
+    drop: item => {
+      moveRow(item.index, index);
+    },
+  });
+  
+  const [, drag] = useDrag({
+    type,
+    item: { index },
+    collect: monitor => ({
+      isDragging: monitor.isDragging(),
+    }),
+  });
+  
+  drop(drag(ref));
+  
+  return (
+    <tr
+      ref={ref}
+      className={`${className}${isOver ? ` ${dropClassName}` : ''}`}
+      style={{ cursor: 'move', ...style }}
+      {...restProps}
+    />
+  );
+};
 
 const MusicManagement = () => {
   // 状态
@@ -33,6 +82,9 @@ const MusicManagement = () => {
     categoryId: null,
     searchText: ''
   });
+  const [orderType, setOrderType] = useState('globalOrder'); // 'globalOrder' 或 'categoryOrder'
+  const [savingOrder, setSavingOrder] = useState(false);
+  const [showInitButton, setShowInitButton] = useState(false);
 
   // 获取音乐列表
   const fetchMusic = async (page = 1, pageSize = 10, filters = {}) => {
@@ -58,12 +110,22 @@ const MusicManagement = () => {
           );
         }
         
-        setMusic(filteredData);
+        // 根据当前排序类型排序
+        const sortedData = [...filteredData].sort((a, b) => {
+          // 检查是否有排序值，如果没有则显示初始化按钮
+          if (a[orderType] === undefined || b[orderType] === undefined) {
+            setShowInitButton(true);
+            return 0;
+          }
+          return (a[orderType] || 0) - (b[orderType] || 0);
+        });
+        
+        setMusic(sortedData);
         setPagination({
           ...pagination,
           current: page,
           pageSize,
-          total: result.total
+          total: result.total || filteredData.length
         });
       } else {
         message.error(result.error || '获取音乐列表失败');
@@ -96,6 +158,11 @@ const MusicManagement = () => {
     fetchMusic(pagination.current, pagination.pageSize, filters);
     fetchCategories();
   }, []);
+
+  // 当排序类型变化时重新获取数据
+  useEffect(() => {
+    fetchMusic(pagination.current, pagination.pageSize, filters);
+  }, [orderType]);
 
   // 处理表格变化
   const handleTableChange = (pagination, filters, sorter) => {
@@ -147,30 +214,26 @@ const MusicManagement = () => {
   const handleFormSubmit = async (values) => {
     setFormLoading(true);
     try {
+      let result;
+      
       if (currentMusic) {
         // 更新音乐
-        const result = await updateMusic(currentMusic._id, values);
-        if (result.success) {
-          message.success('音乐更新成功');
-          closeFormModal();
-          fetchMusic(pagination.current, pagination.pageSize, filters);
-        } else {
-          message.error(result.error || '更新音乐失败');
-        }
+        result = await updateMusic(currentMusic._id, values);
       } else {
         // 添加音乐
-        const result = await addMusic(values);
-        if (result.success) {
-          message.success('音乐添加成功');
-          closeFormModal();
-          fetchMusic(pagination.current, pagination.pageSize, filters);
-        } else {
-          message.error(result.error || '添加音乐失败');
-        }
+        result = await addMusic(values);
+      }
+      
+      if (result.success) {
+        message.success(currentMusic ? '音乐更新成功' : '音乐添加成功');
+        closeFormModal();
+        fetchMusic(pagination.current, pagination.pageSize, filters);
+      } else {
+        message.error(result.error || (currentMusic ? '更新音乐失败' : '添加音乐失败'));
       }
     } catch (error) {
-      console.error('提交表单失败:', error);
-      message.error('提交表单失败: ' + error.message);
+      console.error(currentMusic ? '更新音乐失败:' : '添加音乐失败:', error);
+      message.error((currentMusic ? '更新音乐失败: ' : '添加音乐失败: ') + error.message);
     } finally {
       setFormLoading(false);
     }
@@ -180,6 +243,7 @@ const MusicManagement = () => {
   const handleDelete = async (id) => {
     try {
       const result = await deleteMusic(id);
+      
       if (result.success) {
         message.success('音乐删除成功');
         fetchMusic(pagination.current, pagination.pageSize, filters);
@@ -189,6 +253,70 @@ const MusicManagement = () => {
     } catch (error) {
       console.error('删除音乐失败:', error);
       message.error('删除音乐失败: ' + error.message);
+    }
+  };
+
+  // 处理排序类型变更
+  const handleOrderTypeChange = (value) => {
+    setOrderType(value);
+  };
+
+  // 初始化排序值
+  const initializeOrders = async () => {
+    try {
+      setLoading(true);
+      const result = await initializeOrderValues();
+      if (result.success) {
+        message.success('排序值初始化成功');
+        setShowInitButton(false);
+        fetchMusic(pagination.current, pagination.pageSize, filters);
+      } else {
+        message.error('排序值初始化失败: ' + (result.error || '未知错误'));
+      }
+    } catch (error) {
+      console.error('初始化排序值失败:', error);
+      message.error('初始化排序值失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 处理拖拽排序
+  const moveRow = async (dragIndex, hoverIndex) => {
+    // 更新本地状态
+    const dragRow = music[dragIndex];
+    const newData = [...music];
+    newData.splice(dragIndex, 1);
+    newData.splice(hoverIndex, 0, dragRow);
+    setMusic(newData);
+    
+    // 计算新的排序值
+    const updatedItems = newData.map((item, index) => ({
+      id: item._id,
+      order: (index + 1) * 10 // 使用间隔为10的排序值
+    }));
+    
+    // 保存到服务器
+    try {
+      setSavingOrder(true);
+      
+      const result = await batchUpdateMusicOrder({
+        items: updatedItems,
+        orderType
+      });
+      
+      if (!result.success) {
+        message.error('保存排序失败: ' + (result.error || '未知错误'));
+        // 如果保存失败，重新获取数据
+        fetchMusic(pagination.current, pagination.pageSize, filters);
+      }
+    } catch (error) {
+      console.error('保存排序失败:', error);
+      message.error('保存排序失败，请重试');
+      // 如果出错，重新获取数据
+      fetchMusic(pagination.current, pagination.pageSize, filters);
+    } finally {
+      setSavingOrder(false);
     }
   };
 
@@ -224,30 +352,38 @@ const MusicManagement = () => {
   // 表格列定义
   const columns = [
     {
+      title: '序号',
+      dataIndex: 'index',
+      key: 'index',
+      width: 80,
+      render: (_, __, index) => (pagination.current - 1) * pagination.pageSize + index + 1
+    },
+    {
       title: '音乐名称',
       dataIndex: 'name',
       key: 'name',
       render: (text, record) => (
-        <div className="music-name-cell">
-          {record.listImageUrl && (
-            <Image 
-              src={record.listImageUrl} 
-              alt={text}
-              className="music-thumbnail"
-              preview={false}
-            />
-          )}
-          <span>{text}</span>
-        </div>
-      ),
+        <Space>
+          {text}
+          {record.isNew && <Tag color="green">新</Tag>}
+        </Space>
+      )
     },
     {
-      title: '分类',
+      title: '所属分类',
       dataIndex: 'categoryId',
       key: 'categoryId',
-      render: categoryId => (
-        <Tag color="blue">{getCategoryName(categoryId)}</Tag>
-      ),
+      render: (categoryId) => {
+        const category = categories.find(c => c._id === categoryId);
+        if (!category) return '-';
+        
+        if (category.parentId) {
+          const parentCategory = categories.find(c => c._id === category.parentId);
+          return parentCategory ? `${parentCategory.name} / ${category.name}` : category.name;
+        }
+        
+        return category.name;
+      }
     },
     {
       title: '背景图',
@@ -271,18 +407,20 @@ const MusicManagement = () => {
       title: '创建时间',
       dataIndex: 'createTime',
       key: 'createTime',
-      render: time => time ? moment(time).format('YYYY-MM-DD HH:mm') : '-',
-      sorter: (a, b) => {
-        if (!a.createTime || !b.createTime) return 0;
-        return new Date(a.createTime) - new Date(b.createTime);
-      },
+      render: (createTime) => createTime ? moment(createTime).format('YYYY-MM-DD HH:mm:ss') : '-'
+    },
+    {
+      title: '播放次数',
+      dataIndex: 'playCount',
+      key: 'playCount',
+      render: (playCount) => playCount || 0
     },
     {
       title: '操作',
       key: 'action',
       width: 200,
       render: (_, record) => (
-        <Space size="middle">
+        <Space>
           <Button 
             type="link" 
             icon={<EditOutlined />}
@@ -314,13 +452,26 @@ const MusicManagement = () => {
       <Card className="music-management-card">
         <div className="music-management-header">
           <Title level={2}>音乐管理</Title>
-          <Button 
-            type="primary" 
-            icon={<PlusOutlined />}
-            onClick={openAddForm}
-          >
-            添加音乐
-          </Button>
+          <Space>
+            {showInitButton && (
+              <Tooltip title="初始化所有音乐的排序值">
+                <Button 
+                  icon={<OrderedListOutlined />} 
+                  onClick={initializeOrders}
+                  loading={loading}
+                >
+                  初始化排序值
+                </Button>
+              </Tooltip>
+            )}
+            <Button 
+              type="primary" 
+              icon={<PlusOutlined />}
+              onClick={openAddForm}
+            >
+              添加音乐
+            </Button>
+          </Space>
         </div>
         
         <div className="music-filter-container">
@@ -375,22 +526,50 @@ const MusicManagement = () => {
             >
               重置
             </Button>
+            
+            <Select
+              value={orderType}
+              style={{ width: 150, marginLeft: 16 }}
+              onChange={handleOrderTypeChange}
+            >
+              <Option value="globalOrder">全局排序</Option>
+              <Option value="categoryOrder">分类内排序</Option>
+            </Select>
           </div>
         </div>
         
-        <Table
-          columns={columns}
-          dataSource={music}
-          rowKey="_id"
-          pagination={{
-            ...pagination,
-            showSizeChanger: true,
-            showTotal: total => `共 ${total} 条记录`
-          }}
-          loading={loading}
-          onChange={handleTableChange}
-          scroll={{ x: 1200 }}
-        />
+        <div className="sort-instructions">
+          <InfoCircleOutlined style={{ marginRight: 8 }} />
+          <Text type="secondary">
+            提示: 拖拽音乐行可以调整{orderType === 'globalOrder' ? '全局' : '分类内'}排序。当前使用
+            <Text strong>{orderType === 'globalOrder' ? '全局排序' : '分类内排序'}</Text>。
+          </Text>
+        </div>
+        
+        <DndProvider backend={HTML5Backend}>
+          <Table
+            components={{
+              body: {
+                row: DraggableRow,
+              },
+            }}
+            loading={loading || savingOrder}
+            dataSource={music}
+            columns={columns}
+            rowKey="_id"
+            pagination={{
+              ...pagination,
+              showSizeChanger: true,
+              showTotal: total => `共 ${total} 条记录`
+            }}
+            onChange={handleTableChange}
+            scroll={{ x: 1200 }}
+            onRow={(record, index) => ({
+              index,
+              moveRow,
+            })}
+          />
+        </DndProvider>
       </Card>
       
       <Modal

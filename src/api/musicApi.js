@@ -2,50 +2,62 @@ import { callFunction } from './cloudApi';
 
 /**
  * 获取音乐列表
- * @param {Object} params - 查询参数
- * @param {string} [params.categoryId] - 分类ID（可选）
- * @param {number} [params.limit=20] - 每页数量
- * @param {number} [params.skip=0] - 跳过数量
+ * @param {Object} params - 请求参数
+ * @param {string} [params.categoryId] - 分类ID
  * @returns {Promise<Object>} 包含音乐数据的响应
  */
 export const getMusic = async (params = {}) => {
-  return await callFunction('musicManager', { 
+  return await callFunction('musicManager', {
     action: 'get',
     ...params
   });
 };
 
 /**
- * 添加音乐
- * @param {Object} musicData - 音乐数据
- * @param {string} musicData.audioUrl - 音乐链接
- * @param {string} musicData.name - 音乐名称
- * @param {string} musicData.title - 标题
- * @param {string} [musicData.backgroundUrl] - 音乐背景图
- * @param {string} [musicData.iconUrl] - 音乐播放图标
- * @param {string} [musicData.listImageUrl] - 音乐列表图
- * @param {string} [musicData.subtitle] - 副标题
- * @param {string} musicData.categoryId - 分类ID
- * @returns {Promise<Object>} 包含新添加音乐的响应
+ * 获取所有音乐
+ * @returns {Promise<Object>} 包含所有音乐数据的响应
  */
-export const addMusic = async (musicData) => {
-  return await callFunction('musicManager', { 
+export const getAllMusic = async () => {
+  return await callFunction('musicManager', {
+    action: 'getAll'
+  });
+};
+
+/**
+ * 根据ID获取音乐
+ * @param {string} id - 音乐ID
+ * @returns {Promise<Object>} 包含音乐数据的响应
+ */
+export const getMusicById = async (id) => {
+  return await callFunction('musicManager', {
+    action: 'getById',
+    id
+  });
+};
+
+/**
+ * 添加音乐
+ * @param {Object} data - 音乐数据
+ * @returns {Promise<Object>} 包含添加结果的响应
+ */
+export const addMusic = async (data) => {
+  return await callFunction('musicManager', {
     action: 'add',
-    ...musicData
+    ...data
   });
 };
 
 /**
  * 更新音乐
- * @param {string} id - 要更新的音乐ID
- * @param {Object} musicData - 更新的音乐数据
+ * @param {string} id - 音乐ID
+ * @param {Object} data - 要更新的数据
  * @returns {Promise<Object>} 包含更新结果的响应
  */
-export const updateMusic = async (id, musicData) => {
-  return await callFunction('musicManager', { 
+export const updateMusic = async (id, data) => {
+  return await callFunction('musicManager', {
     action: 'update',
     id,
-    ...musicData
+    ...data
   });
 };
 
@@ -55,8 +67,60 @@ export const updateMusic = async (id, musicData) => {
  * @returns {Promise<Object>} 包含删除结果的响应
  */
 export const deleteMusic = async (id) => {
-  return await callFunction('musicManager', { 
+  return await callFunction('musicManager', {
     action: 'delete',
     id
+  });
+};
+
+/**
+ * 批量更新音乐排序
+ * @param {Object} data - 排序数据
+ * @param {Array} data.items - 包含id和order的对象数组
+ * @param {string} data.orderType - 排序类型 ('globalOrder' 或 'categoryOrder')
+ * @returns {Promise<Object>} 包含更新结果的响应
+ */
+export const batchUpdateMusicOrder = async (data) => {
+  return await callFunction('musicManager', {
+    action: 'batchUpdateOrder',
+    ...data
+  });
+};
+
+/**
+ * 更新单个音乐排序
+ * @param {string} id - 音乐ID
+ * @param {string} orderType - 排序类型 ('globalOrder' 或 'categoryOrder')
+ * @param {number} order - 排序值
+ * @returns {Promise<Object>} 包含更新结果的响应
+ */
+export const updateMusicOrder = async (id, orderType, order) => {
+  return await callFunction('musicManager', {
+    action: 'updateOrder',
+    id,
+    orderType,
+    order
+  });
+};
+
+/**
+ * 重新排序分类内音乐
+ * @param {string} categoryId - 分类ID
+ * @returns {Promise<Object>} 包含重排序结果的响应
+ */
+export const reorderCategoryMusic = async (categoryId) => {
+  return await callFunction('musicManager', {
+    action: 'reorderCategory',
+    categoryId
+  });
+};
+
+/**
+ * 初始化所有音乐排序值
+ * @returns {Promise<Object>} 包含初始化结果的响应
+ */
+export const initializeOrderValues = async () => {
+  return await callFunction('musicManager', {
+    action: 'initializeOrders'
   });
 }; 
